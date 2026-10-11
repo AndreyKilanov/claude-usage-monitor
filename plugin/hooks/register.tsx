@@ -59,6 +59,27 @@ const homeDir = async ($: any): Promise<string | undefined> => {
   return drive && path ? `${drive}${path}` : undefined
 }
 
+// One separator for the whole path: Windows homes use backslashes, and a path half "\\" and half "/" is asked for trouble.
+const joinPath = (base: string, ...parts: string[]) => {
+  const sep = base.includes('\\') ? '\\' : '/'
+  return [base.replace(/[\\/]+$/, ''), ...parts].join(sep)
+}
+const dataFile = (home: string, sid: string) => joinPath(home, '.claude', 'usage-monitor', `${sid}.json`)
+
+// A note left inside the plugin's own folder, so a machine where nothing shows up can say why:
+// "loaded" proves the plugin runs; "error" carries what failed and where.
+const diag = async ($: any, kind: 'loaded' | 'error', detail: string) => {
+  try {
+    const now = await $.clock.now()
+    await $.fs.write(
+      joinPath($.plugin.root, 'diagnostics.txt'),
+      `${kind} at ${new Date(now).toISOString()}\n${detail}\n`,
+    )
+  } catch {
+    // nowhere left to report to
+  }
+}
+
 const maxMerge = (a: Record<string, number>, b: Record<string, number>) => {
   const out = { ...a }
   for (const [k, v] of Object.entries(b)) out[k] = Math.max(out[k] ?? 0, Number(v) || 0)
@@ -93,7 +114,7 @@ const adopt = async ($: any) => {
     if (!home) return
     let old: Partial<Usage> | null = null
     try {
-      old = JSON.parse(await $.fs.read(`${home}/.claude/usage-monitor/${sid}.json`))
+      old = JSON.parse(await $.fs.read(dataFile(home, sid)))
     } catch {
       return // no file yet, or half-written: nothing to merge
     }
@@ -125,13 +146,27 @@ const persist = async ($: any) => {
     const now = await $.clock.now()
     const sid = await $.session.id()
     // one file per session: a single writer each, so two windows can never tear each other's data
-    await $.fs.write(`${home}/.claude/usage-monitor/${sid}.json`, JSON.stringify({ ...u, updatedAt: now }))
-  } catch {
+    const target = dataFile(home, sid)
+    try {
+      await $.fs.write(target, JSON.stringify({ ...u, updatedAt: now }))
+    } catch (err) {
+      await diag($, 'error', `could not write ${target}\n${String(err)}`)
+    }
+  } catch (err) {
+    await diag($, 'error', `persist failed\n${String(err)}`)
     // the status bar is a convenience: never let it break a turn
   }
 }
 
 export const register: Register = on => {
+  // The data folder shows up the moment a session starts, not only after its first reply.
+  on('session.start', async ($, e, next) => {
+    const home = await homeDir($)
+    await diag($, 'loaded', `home: ${home ?? '(none found)'}\nplugin: ${$.plugin.root}`)
+    await persist($)
+    return next(e)
+  })
+
   on('turn.complete', async ($, e, next) => {
     await adopt($)
     if (e.usage) {

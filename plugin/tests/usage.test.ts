@@ -138,7 +138,7 @@ test('Windows: the home folder comes from USERPROFILE and the project from a bac
   winWorld(on, files, { USERPROFILE: 'C:\\Users\\andy' }, 'C:\\work\\my-project')
   await complete($, usageOf('m', 10))
   // the test engine runs on a POSIX host and prefixes a drive path with its cwd; a real Windows host does not
-  const key = [...files.keys()].find(k => k.endsWith('C:\\Users\\andy/.claude/usage-monitor/w1.json'))
+  const key = [...files.keys()].find(k => k.endsWith('C:\\Users\\andy\\.claude\\usage-monitor\\w1.json'))
   expect(key).toBeDefined()
   const f = JSON.parse(files.get(key!) ?? 'null')
   expect(f.tokens).toBe(10)
@@ -149,7 +149,7 @@ test('Windows: HOMEDRIVE + HOMEPATH is the last resort; with none, nothing is wr
   const files = new Map<string, string>()
   winWorld(on, files, { HOMEDRIVE: 'D:', HOMEPATH: '\\Users\\andy' }, 'D:\\p')
   await complete($, usageOf('m', 5))
-  expect([...files.keys()].some(k => k.endsWith('D:\\Users\\andy/.claude/usage-monitor/w1.json'))).toBe(true)
+  expect([...files.keys()].some(k => k.endsWith('D:\\Users\\andy\\.claude\\usage-monitor\\w1.json'))).toBe(true)
 })
 
 test('no home folder at all: the turn still completes', async ($, on) => {
@@ -157,4 +157,38 @@ test('no home folder at all: the turn still completes', async ($, on) => {
   winWorld(on, files, {}, '/p')
   await complete($, usageOf('m', 5))
   expect(files.size).toBe(0)
+})
+
+test('the data file appears when the session starts, before any reply', async ($, on) => {
+  const files = new Map<string, string>()
+  world(on, { v: 's1' }, files)
+  on('session.start', (_$: any, e: any) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/work/my-project' })
+  const f = fileOf(files, 's1')
+  expect(f).not.toBe(null)
+  expect(f.tokens).toBe(0)
+  expect(f.fiveHour).toBe(null)
+})
+
+test('a note in the plugin folder says the plugin loaded, and what failed when a write is refused', async ($, on) => {
+  const files = new Map<string, string>()
+  mock.clock(on, { now: NOW })
+  mock.env(on, { HOME: '/home/u' })
+  on('session.id', () => ({ value: 's1' }))
+  on('session.cwd', () => ({ value: '/p' }))
+  on('fs.read', () => { throw new Error('ENOENT') })
+  on('fs.write', (_$: any, e: any) => {
+    if (e.path.includes('/.claude/usage-monitor/')) return { deny: 'EACCES: permission denied' }
+    files.set(e.path, e.text)
+    return { value: undefined }
+  })
+  on('session.start', (_$: any, e: any) => ({ cwd: e.cwd }))
+  on('turn.complete', () => ({ text: '' }))
+  await $.session.start({ cwd: '/p' })
+  await complete($, usageOf('m', 5)) // the refused write must not break the turn
+  const note = [...files.entries()].find(([k]) => k.endsWith('diagnostics.txt'))
+  expect(note).toBeDefined()
+  expect(note![1]).toContain('error at')
+  expect(note![1]).toContain('EACCES')
+  expect(note![1]).toContain('/home/u/.claude/usage-monitor/s1.json')
 })

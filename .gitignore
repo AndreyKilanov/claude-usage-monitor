@@ -5,3 +5,4 @@ node_modules/
 *.tmp
 plugin/.claude-plugin/types/
 plugin/tsconfig.json
+plugin/diagnostics.txt

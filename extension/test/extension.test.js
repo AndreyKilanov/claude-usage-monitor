@@ -94,6 +94,31 @@ test('"no data" explains itself: folder missing, folder empty, files unreadable'
   assert.match(ru.tooltip(), /Папка не найдена/)
 })
 
+test('"no data" shows the note the plugin left, or says the plugin is silent', () => {
+  const silent = setup()
+  fs.rmSync(silent.sessDir, { recursive: true })
+  silent.start()
+  assert.match(silent.tooltip(), /left no note on this machine/)
+
+  const loud = setup()
+  fs.rmSync(loud.sessDir, { recursive: true })
+  const pluginDir = path.join(loud.home, '.claude', 'plugins', 'cache', 'claude-usage-monitor', 'usage-monitor', '0.5.4')
+  fs.mkdirSync(pluginDir, { recursive: true })
+  fs.writeFileSync(path.join(pluginDir, 'diagnostics.txt'), 'error at 2026-10-11T10:00:00.000Z\ncould not write C:\\Users\\a\\.claude\\usage-monitor\\s.json\nEPERM: operation not permitted\n')
+  loud.start()
+  assert.match(loud.tooltip(), /Note from the plugin/)
+  assert.match(loud.tooltip(), /EPERM: operation not permitted/)
+  assert.doesNotMatch(loud.tooltip(), /left no note/)
+
+  const other = setup() // a note from some other plugin must not be mistaken for ours
+  fs.rmSync(other.sessDir, { recursive: true })
+  const odd = path.join(other.home, '.claude', 'plugins', 'cache', 'someone-else', 'tool', '1.0')
+  fs.mkdirSync(odd, { recursive: true })
+  fs.writeFileSync(path.join(odd, 'diagnostics.txt'), 'not ours')
+  other.start()
+  assert.doesNotMatch(other.tooltip(), /not ours/)
+})
+
 test('a half-written file is skipped and the good one is used', () => {
   const t = setup()
   t.write('torn.json', '{"fiveHour":43,"updatedAt":17917\0\0\0\0')

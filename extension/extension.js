@@ -23,6 +23,8 @@ const STR = {
     noFiles: 'Папка есть, но файлов сессий пока нет. Отправьте сообщение в НОВОЙ сессии Claude (плагин должен быть установлен и включён).',
     noReadable: 'Файлы сессий есть, но их не удалось прочитать (повреждены или не те права доступа).',
     lookingIn: 'Ищу данные в:',
+    pluginSays: 'Записка плагина:',
+    pluginSilent: 'Плагин на этой машине не оставил записки: он не установлен, не включён или эта версия Claude не запускает модули плагинов. Выполните /plugin в Claude Code и проверьте, что usage-monitor включён.',
     h5: '5ч', week: 'нед', today: 'сегодня',
     title: 'Claude — расход', win5: 'Окно 5 часов', winWeek: 'Неделя',
     sonnet: 'Неделя · Sonnet', opus: 'Неделя · Opus', spend: 'Лимит трат', other: 'Лимит',
@@ -53,6 +55,8 @@ const STR = {
     noFiles: 'The folder exists but has no session files yet. Send a message in a NEW Claude session (the plugin must be installed and enabled).',
     noReadable: 'Session files exist but could not be read (damaged, or no permission).',
     lookingIn: 'Looking for data in:',
+    pluginSays: 'Note from the plugin:',
+    pluginSilent: 'The plugin has left no note on this machine: it is not installed, not enabled, or this Claude version does not run plugin modules. Run /plugin in Claude Code and check that usage-monitor is enabled.',
     h5: '5h', week: 'wk', today: 'today',
     title: 'Claude — usage', win5: '5-hour window', winWeek: 'Week',
     sonnet: 'Week · Sonnet', opus: 'Week · Opus', spend: 'Spend limit', other: 'Limit',
@@ -339,6 +343,27 @@ function forecast(history, u) {
   return eta < reset ? eta : null
 }
 
+// The plugin leaves diagnostics.txt in its own folder (under ~/.claude/plugins/...). Find it without walking the whole disk.
+function findPluginNote() {
+  const root = path.join(DIR, 'plugins')
+  const stack = [[root, 0]]
+  let seen = 0
+  while (stack.length && seen < 3000) {
+    const [dir, depth] = stack.pop()
+    let entries = []
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { continue }
+    for (const e of entries) {
+      seen++
+      const full = path.join(dir, e.name)
+      if (e.isFile() && e.name === 'diagnostics.txt' && /usage-monitor/.test(dir)) {
+        try { return fs.readFileSync(full, 'utf8').trim().slice(0, 600) } catch { return null }
+      }
+      if (e.isDirectory() && depth < 6 && e.name !== 'node_modules' && e.name !== '.git') stack.push([full, depth + 1])
+    }
+  }
+  return null
+}
+
 // Says why there is nothing to show, so "no data" is never a mystery (wrong machine, plugin missing, unreadable files).
 function noDataHelp() {
   let names = []
@@ -351,7 +376,9 @@ function noDataHelp() {
   const why = !exists ? `${L.noFolder}\n\n\`/plugin install usage-monitor --marketplace AndreyKilanov/claude-usage-monitor\``
     : names.length === 0 ? L.noFiles
     : L.noReadable
-  return `${L.noDataTip}\n\n${why}\n\n${L.lookingIn}\n\n\`${SESS}\``
+  const note = findPluginNote()
+  const plugin = note ? `${L.pluginSays}\n\n\`\`\`\n${note}\n\`\`\`` : !exists ? L.pluginSilent : ''
+  return [L.noDataTip, why, plugin, `${L.lookingIn}\n\n\`${SESS}\``].filter(Boolean).join('\n\n')
 }
 
 function activate(context) {

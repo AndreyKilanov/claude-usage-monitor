@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.4
+
+Diagnosing and hardening Windows.
+
+- The plugin writes its data file as soon as a session starts, not only after the first reply, so the data folder exists immediately.
+- One path separator throughout (backslashes on Windows) instead of a mix.
+- The plugin leaves a note, `diagnostics.txt`, inside its own folder: `loaded` when it starts, `error` with the failing path and the system message if a write is refused. Nothing was reported before.
+- The status bar's "no data" tooltip reads that note and shows it, or says the plugin left none (not installed / not enabled / this Claude version does not run plugin modules).
+- Tests: 14 plugin tests, 28 extension tests; verified end to end on the real Claude Code engine (headless run).
+
 ## 0.5.3
 
 - **Windows fix.** The plugin looked for the home folder only in `HOME`, which Windows does not set, so nothing was written and the status bar said "no data". It now also reads `USERPROFILE` (and `HOMEDRIVE` + `HOMEPATH`), and takes the project name from backslash paths.

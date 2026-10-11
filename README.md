@@ -106,6 +106,8 @@ Hover it — the tooltip says which case you are in and which folder it checks (
 3. **Remote / WSL / SSH windows:** the extension and the plugin must run on the same machine and read the same home folder.
 4. **Still nothing:** run `/plugin` in Claude Code and check that `usage-monitor` is enabled.
 
+The tooltip also shows the plugin's own note (`diagnostics.txt` in the plugin folder): `loaded` means the plugin runs, `error` carries the failing path and the system message. If it says the plugin left no note, the plugin is not running on that machine.
+
 ## Build from source
 
 ```bash
@@ -185,3 +187,5 @@ No dependencies and no build step: the extension is a single JavaScript file.
 2. **Папка есть, но пустая** — отправьте сообщение в **новой** сессии. Сессии, начатые до установки или обновления плагина, не учитываются.
 3. **Удалённые окна (WSL / SSH):** расширение и плагин должны работать на одной машине и читать одну домашнюю папку.
 4. **Всё равно пусто** — выполните `/plugin` в Claude Code и проверьте, что `usage-monitor` включён.
+
+В подсказке также показывается записка самого плагина (`diagnostics.txt` в его папке): `loaded` — плагин запущен, `error` — путь и системное сообщение об ошибке. Если там написано, что записки нет, плагин на этой машине не работает.
