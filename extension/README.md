@@ -7,8 +7,11 @@ Your Claude Code <b>5-hour</b> and <b>weekly</b> limits, tokens by <b>day, model
 alerts and a pace forecast — right in the status bar of VS Code, Antigravity and Cursor.
 </p>
 
+<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/statusbar.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
+<p align="center"><sub>The status bar item and its hover tooltip.</sub></p>
+
 <p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/panel-dark.png" width="640" alt="Usage panel, dark theme"></p>
-<p align="center"><sub>Sample data. The panel follows your editor theme.</sub></p>
+<p align="center"><sub>The panel follows your editor theme. Mock-ups drawn from the extension's own output with sample data.</sub></p>
 
 > **Unofficial.** Not affiliated with or endorsed by Anthropic. "Claude" is a trademark of its owner; it is used here only to say what the tool works with.
 
