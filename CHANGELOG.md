@@ -7,6 +7,7 @@
 - **Outdated-plugin banner.** The plugin now writes its own version into every data file; if the plugin on this computer is older than 0.6.3 or reports no version, the panel says so and points to *menu → Install the usage-monitor plugin*. An outdated plugin is also flagged with one line at the end of the tooltip.
 - The plugin also records the project folder name of each session.
 - The tooltip's reset column is right-aligned to sit under the version.
+- Docs: the README no longer promises the separate weekly Sonnet / Opus limits. Claude Code reports only the 5-hour and the weekly limit to plugins, so those are the two rows you get; the sample screenshots no longer show a Sonnet row either.
 - Tests: 18 plugin tests, 55 extension tests.
 
 **Update the plugin on every machine** (menu → *Install the usage-monitor plugin*), then start a new Claude session.

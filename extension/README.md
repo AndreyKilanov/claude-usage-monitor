@@ -20,7 +20,7 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 | | |
 | --- | --- |
 | **Status bar** | `5h 38% · wk 5% · today 1.2M`; turns yellow / red at 80% / 90% (configurable) |
-| **Hover** | progress bars, time to reset, Sonnet / Opus weekly windows when your plan has them |
+| **Hover** | progress bars and the time to reset for the 5-hour and weekly limits |
 | **Panel** (click) | ring gauges, 24-hour / 7-day / 30-day charts, breakdown by model and by project |
 | **Alerts** | a notification when a limit crosses the warning / critical percent, and when it resets |
 | **Forecast** | "at this pace the 5-hour limit runs out in 23 min" — only when it would happen before the reset |

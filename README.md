@@ -29,7 +29,7 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 | | |
 | --- | --- |
 | **Status bar** | `5h 38% · wk 5% · today 1.2M`; turns yellow / red at 80% / 90% (configurable) |
-| **Hover** | progress bars, time to reset, Sonnet / Opus weekly windows when your plan has them |
+| **Hover** | progress bars and the time to reset for the 5-hour and weekly limits |
 | **Menu** (click) | panel, copy a one-line summary, export CSV, refresh, settings, install / update the plugin, help |
 | **Panel** | an *All projects / this project* switch, ring gauges, 24-hour / 7-day / 30-day charts, **what the tokens are made of** (cache reads / writes, new input, output), breakdown by model and by project |
 | **Alerts** | a notification when a limit crosses the warning / critical percent, and when it resets |
@@ -101,7 +101,7 @@ Commands (Command Palette): **Claude Usage: Open Panel**, **Refresh**, **Export 
 
 - **Percentages are account-wide**, the same on every device. **Tokens are counted per machine** unless you set a sync folder.
 - Token counts include cache reads, so the numbers are large. Go by the percentages for how much of your limit is left.
-- Sonnet / Opus weekly windows and the 5-hour window only appear if your plan reports them.
+- Claude Code hands plugins the 5-hour and the weekly limit only. The separate weekly Sonnet / Opus limits that some plans have are not available to this tool, so they are not shown (the panel would show any further window automatically if Claude Code ever reports it).
 - Needs a Claude subscription that reports usage windows. On other setups the percentages show "—" and tokens still count.
 - Developed and tested on macOS. Windows is supported (home folder from `USERPROFILE`) but only covered by automated tests, not by daily use; Linux is untested. Please [open an issue](https://github.com/AndreyKilanov/claude-usage-monitor/issues) if something is off.
 
@@ -154,7 +154,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 | | |
 | --- | --- |
 | **Строка состояния** | `5ч 38% · нед 5% · сегодня 1.2M`. При 80% становится жёлтой, при 90% красной (пороги настраиваются) |
-| **Подсказка** | шкалы лимитов, время до сброса, недельные лимиты Sonnet и Opus, если они есть в вашем тарифе |
+| **Подсказка** | шкалы лимитов (5 часов и неделя) и время до сброса |
 | **Меню** (по клику) | панель, копирование краткой сводки, экспорт в CSV, обновление, настройки, установка и обновление плагина, справка |
 | **Панель** | переключатель «Все проекты / этот проект», кольца лимитов, графики за сутки, 7 и 30 дней, **состав токенов** (чтение и запись кэша, новый запрос, ответ), расход по моделям и по проектам |
 | **Оповещения** | уведомление, когда лимит достигает порога, и когда он сбрасывается |
@@ -193,7 +193,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 
 - **Проценты лимитов относятся ко всему аккаунту**, поэтому на всех устройствах они одинаковые. **Токены считаются отдельно на каждом компьютере**, пока вы не задали папку синхронизации.
 - В число токенов входит чтение кэша, и поэтому оно получается очень большим. Сколько осталось до лимита, лучше судить по процентам.
-- Недельные лимиты Sonnet и Opus появляются только в том случае, если их сообщает ваш тариф.
+- Claude Code передаёт плагинам только 5-часовой и недельный лимиты. Отдельные недельные лимиты Sonnet и Opus, которые есть в некоторых тарифах, этому инструменту недоступны, поэтому они не показываются (если Claude Code начнёт сообщать и их, панель покажет их сама).
 - Проект разрабатывался и проверялся на macOS. Windows поддерживается (домашняя папка определяется по `USERPROFILE`), но проверена в основном автотестами. Linux не проверялся. Если что-то работает неправильно, [создайте обращение](https://github.com/AndreyKilanov/claude-usage-monitor/issues).
 
 ## Если в строке состояния «нет данных»
