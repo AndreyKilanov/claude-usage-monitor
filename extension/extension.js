@@ -517,9 +517,9 @@ function activate(context) {
       const dim = { total: L.csvDimTotal, model: L.csvDimModel, project: L.csvDimProject }
       rows = [[L.csvDate, L.csvDimension, L.csvName, L.csvTokens]]
       for (const date of dates) {
-        rows.push([date, dim.total, '', days[date].total])
-        for (const [m, n] of Object.entries(days[date].model).sort((a, b) => b[1] - a[1])) rows.push([date, dim.model, m, n])
-        for (const [p, n] of Object.entries(days[date].project).sort((a, b) => b[1] - a[1])) rows.push([date, dim.project, p, n])
+        rows.push([date, dim.total, '', groupNum(days[date].total)])
+        for (const [m, n] of Object.entries(days[date].model).sort((a, b) => b[1] - a[1])) rows.push([date, dim.model, m, groupNum(n)])
+        for (const [p, n] of Object.entries(days[date].project).sort((a, b) => b[1] - a[1])) rows.push([date, dim.project, p, groupNum(n)])
       }
     } else {
       // one column per model / project (the biggest eight), the rest and anything unattributed in "Other"

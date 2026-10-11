@@ -416,17 +416,22 @@ test('digit grouping edge values', () => {
   assert.match(run(0), /Today: \*\*0\*\*/)
 })
 
-test('CSV tables are grouped by the same rule; raw rows stay plain numbers for pivots', async () => {
+test('every CSV mode groups digits by the same rule, and "none" gives plain numbers', async () => {
   const t = setup({ lang: 'ru' })
   t.write('s.json', session({ buckets: { [hourNow()]: 13240843 }, detail: { [hourNow()]: { m: { 'claude-sonnet-5-5': 13240843 }, p: { web: 13240843 } } } }))
   t.start()
-  const table = await exportAs(t, 'model')
-  assert.ok(table.includes('13\u00A0240\u00A0843'), table)
-  const raw = await exportAs(t, 'long')
-  assert.ok(raw.includes(';13240843'), raw)
-  assert.ok(!raw.includes('\u00A0'))
+  for (const pick of ['model', 'project', 'long']) {
+    const csv = await exportAs(t, pick)
+    assert.ok(csv.includes('13\u00A0240\u00A0843'), `${pick}: ${csv}`)
+    assert.ok(!/\d{7,}/.test(csv.replace(/\d{4}-\d{2}-\d{2}/g, '')), `${pick}: no ungrouped long number`)
+  }
   const en = setup({ lang: 'en' })
-  en.write('s.json', session({ buckets: { [hourNow()]: 13240843 } }))
+  en.write('s.json', session({ buckets: { [hourNow()]: 13240843 }, detail: { [hourNow()]: { m: { m: 13240843 }, p: { web: 13240843 } } } }))
   en.start()
   assert.ok((await exportAs(en, 'model')).includes('"13,240,843"'), 'a comma group inside a comma-separated file is quoted')
+  assert.ok((await exportAs(en, 'long')).includes('"13,240,843"'))
+  const plain = setup({ lang: 'ru', config: { numberGrouping: 'none' } })
+  plain.write('s.json', session({ buckets: { [hourNow()]: 13240843 } }))
+  plain.start()
+  for (const pick of ['model', 'long']) assert.ok((await exportAs(plain, pick)).includes('13240843'))
 })

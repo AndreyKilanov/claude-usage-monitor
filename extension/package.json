@@ -148,7 +148,7 @@
             "13,240,843",
             "13240843"
           ],
-          "description": "How long token counts are grouped in the tooltip, the panel and the CSV tables (not in the raw-rows CSV, which stays numeric for pivot tables)."
+          "description": "How long token counts are grouped in the tooltip, the panel and all CSV exports. Choose `none` when you feed the CSV to a pivot table or a script and want plain numbers."
         }
       }
     }
