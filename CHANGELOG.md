@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1
+
+- Russian interface and README rewritten in natural language: «5-часовой лимит» / «Недельный лимит» instead of «Окно 5 часов», «Состав токенов», «Новый запрос», «Сообщение плагина», clearer notices and alerts, no more «2 устройств». The Russian README is rewritten as a whole.
+- A test now checks that every string exists in both languages and that known awkward phrases do not come back.
+
 ## 0.6.0
 
 - **Token breakdown.** The panel has a new card, *What the tokens are made of*: cache reads, cache writes, new input and output, as a stacked bar with counts and shares, and a note explaining why the total looks so large. The plugin now records the split per hour; data from before this version is shown as "Not split (older data)". The raw-rows CSV gets `type` rows with the same split.

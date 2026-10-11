@@ -19,45 +19,45 @@ const dayStart = (now, back) => {
 const STR = {
   ru: {
     noData: 'Claude: нет данных',
-    noDataTip: 'Цифры появятся после первого ответа Claude (мод usage-monitor)',
-    noFolder: 'Папка не найдена — плагин ещё ничего не записал. Поставьте плагин и начните новую сессию Claude:',
-    noFiles: 'Папка есть, но файлов сессий пока нет. Отправьте сообщение в НОВОЙ сессии Claude (плагин должен быть установлен и включён).',
-    noReadable: 'Файлы сессий есть, но их не удалось прочитать (повреждены или не те права доступа).',
-    lookingIn: 'Ищу данные в:',
-    kindsTitle: 'Из чего состоят токены',
-    kindCacheRead: 'Чтение кэша', kindCacheWrite: 'Запись в кэш', kindInput: 'Новый ввод', kindOutput: 'Ответ', kindUnknown: 'Без разбивки (старые данные)',
-    kindsNote: 'Большую часть составляет чтение кэша: это контекст, который пересылается заново с каждым ответом. Он стоит заметно дешевле нового ввода, поэтому число выглядит огромным.',
+    noDataTip: 'Цифры появятся после первого ответа Claude в новой сессии.',
+    noFolder: 'Папки с данными нет: плагин на этом компьютере ещё не работал. Установите его и начните новую сессию Claude:',
+    noFiles: 'Папка есть, но в ней пока пусто. Отправьте сообщение в новой сессии Claude (плагин должен быть установлен и включён).',
+    noReadable: 'Файлы в папке есть, но прочитать их не удалось: они повреждены или нет прав доступа.',
+    lookingIn: 'Папка с данными:',
+    kindsTitle: 'Состав токенов',
+    kindCacheRead: 'Чтение кэша', kindCacheWrite: 'Запись в кэш', kindInput: 'Новый запрос', kindOutput: 'Ответ', kindUnknown: 'Без разбивки (старые записи)',
+    kindsNote: 'Большую часть составляет чтение кэша — контекст, который заново отправляется с каждым ответом. Он стоит намного дешевле нового запроса, поэтому общее число получается таким большим.',
     csvDimType: 'тип',
-    menuPanel: 'Открыть панель', menuCopy: 'Копировать сводку', menuRefresh: 'Обновить', menuSettings: 'Настройки', menuHelp: 'Справка и сообщить о проблеме', copied: 'Скопировано:',
+    menuPanel: 'Открыть панель', menuCopy: 'Копировать сводку', menuRefresh: 'Обновить', menuSettings: 'Настройки', menuHelp: 'Справка и обратная связь', copied: 'Скопировано:',
     setupTitle: 'Установить плагин usage-monitor',
-    setupAsk: 'Установить плагин usage-monitor для Claude Code?\n\nБудут выполнены две команды встроенной копии Claude Code:\n• plugin marketplace add AndreyKilanov/claude-usage-monitor\n• plugin install usage-monitor --scope user\n\nПлагин берётся с GitHub (AndreyKilanov/claude-usage-monitor) и только записывает цифры лимитов и токенов в папку ~/.claude/usage-monitor.',
+    setupAsk: 'Установить плагин usage-monitor для Claude Code?\n\nРасширение выполнит две команды в копии Claude Code, встроенной в ваш редактор:\n• plugin marketplace add AndreyKilanov/claude-usage-monitor\n• plugin install usage-monitor --scope user\n\nПлагин загружается с GitHub (AndreyKilanov/claude-usage-monitor) и лишь записывает значения лимитов и токенов в папку ~/.claude/usage-monitor.',
     setupYes: 'Установить', setupBusy: 'Устанавливаю плагин…',
-    setupDone: 'Плагин установлен. Начните НОВУЮ сессию Claude и отправьте сообщение — цифры появятся после первого ответа.',
-    setupNoClaude: 'Не нашёл Claude Code на этой машине. Установите расширение Claude Code (или укажите claude вручную) и повторите.',
-    setupPick: 'Указать claude вручную…',
+    setupDone: 'Плагин установлен. Начните новую сессию Claude и отправьте любое сообщение — цифры появятся после первого ответа.',
+    setupNoClaude: 'Не удалось найти Claude Code на этом компьютере. Установите расширение Claude Code или укажите путь к claude вручную.',
+    setupPick: 'Указать путь к claude…',
     setupFail: 'Не удалось установить плагин:',
     setupClick: 'Нажмите, чтобы установить плагин автоматически.',
-    pluginSays: 'Записка плагина:',
-    pluginSilent: 'Плагин на этой машине не оставил записки: он не установлен, не включён или эта версия Claude не запускает модули плагинов. Выполните /plugin в Claude Code и проверьте, что usage-monitor включён.',
+    pluginSays: 'Сообщение плагина:',
+    pluginSilent: 'Плагин на этом компьютере ничего не сообщил: он не установлен, выключен или эта версия Claude не поддерживает такие плагины. Выполните /plugin в Claude Code и проверьте, что usage-monitor включён.',
     h5: '5ч', week: 'нед', today: 'сегодня',
-    title: 'Claude — расход', win5: 'Окно 5 часов', winWeek: 'Неделя',
-    sonnet: 'Неделя · Sonnet', opus: 'Неделя · Opus', spend: 'Лимит трат', other: 'Лимит',
-    resets: 'сброс через', resetsCap: 'Сброс через', noReset: 'Нет данных о сбросе',
+    title: 'Claude — расход', win5: '5-часовой лимит', winWeek: 'Недельный лимит',
+    sonnet: 'Недельный лимит · Sonnet', opus: 'Недельный лимит · Opus', spend: 'Лимит трат', other: 'Лимит',
+    resets: 'сброс через', resetsCap: 'Сброс через', noReset: 'Время сброса неизвестно',
     todayLine: 'Сегодня', tokens: 'токенов', sessions: 'сессий',
     curSession: 'Текущая сессия', updated: 'Обновлено',
-    forecast: 'При таком темпе лимит 5 часов закончится через',
-    warnMsg: (name, p) => `Claude: ${name} — израсходовано ${p}%`,
-    critMsg: (name, p) => `Claude: ${name} — ${p}%, лимит почти исчерпан`,
-    resetMsg: name => `Claude: ${name} — лимит сброшен, можно продолжать`,
-    note: 'Проценты — по всему аккаунту. Токены включают кэш-чтения, поэтому цифра большая; ориентируйтесь на проценты.',
+    forecast: 'При таком темпе 5-часовой лимит закончится через',
+    warnMsg: (name, p) => `Claude: ${name} — использовано ${p}%`,
+    critMsg: (name, p) => `Claude: ${name} — использовано ${p}%, остаётся совсем немного`,
+    resetMsg: name => `Claude: ${name} сброшен — можно продолжать работу`,
+    note: 'Проценты лимитов относятся ко всему аккаунту. В число токенов входит чтение кэша, поэтому оно получается большим: о том, сколько осталось до лимита, судите по процентам.',
     tabToday: 'Сегодня', tab7: '7 дней', tab30: '30 дней',
     byModel: 'По моделям', byProject: 'По проектам', noBreakdown: 'Пока нет данных', perDay: 'в день', total: 'Всего',
-    devices: 'устройств', exportCsv: 'Экспорт CSV', csvDone: 'Сохранено', csvNone: 'Нет данных для экспорта',
+    devices: 'устройств:', exportCsv: 'Экспорт CSV', csvDone: 'Сохранено', csvNone: 'Нет данных для экспорта',
     csvPick: 'Какую таблицу сохранить?',
     csvByModel: 'По дням и моделям', csvByModelHint: 'Дата, всего и колонка на каждую модель — удобно открыть в Excel или Numbers',
     csvByProject: 'По дням и проектам', csvByProjectHint: 'Дата, всего и колонка на каждый проект',
-    csvLong: 'Сырые данные', csvLongHint: 'Одна строка на срез (для сводных таблиц)',
-    csvDate: 'Дата', csvTotal: 'Всего', csvOther: 'Прочее', csvDimension: 'Срез', csvName: 'Название', csvTokens: 'Токены',
+    csvLong: 'Сырые данные', csvLongHint: 'Одна строка на каждый срез — для сводных таблиц',
+    csvDate: 'Дата', csvTotal: 'Всего', csvOther: 'Прочее', csvDimension: 'Разрез', csvName: 'Название', csvTokens: 'Токены',
     csvDimTotal: 'всего', csvDimModel: 'модель', csvDimProject: 'проект',
     syncOn: 'Синхронизация включена', min: 'мин', h: 'ч', d: 'д',
     days: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'], locale: 'ru-RU',
@@ -97,7 +97,7 @@ const STR = {
     note: 'Percentages cover your whole account. Tokens include cache reads, so the number is large; go by the percentages.',
     tabToday: 'Today', tab7: '7 days', tab30: '30 days',
     byModel: 'By model', byProject: 'By project', noBreakdown: 'No data yet', perDay: 'per day', total: 'Total',
-    devices: 'devices', exportCsv: 'Export CSV', csvDone: 'Saved', csvNone: 'Nothing to export',
+    devices: 'devices:', exportCsv: 'Export CSV', csvDone: 'Saved', csvNone: 'Nothing to export',
     csvPick: 'Which table to save?',
     csvByModel: 'By day and model', csvByModelHint: 'Date, total and one column per model — opens cleanly in Excel or Numbers',
     csvByProject: 'By day and project', csvByProjectHint: 'Date, total and one column per project',
@@ -905,7 +905,7 @@ function panelHtml() {
   function draw() {
     if (!data) return
     $('title').textContent = data.L.title
-    $('updated').textContent = data.L.updated + ' ' + data.time + (data.devicesCount > 1 ? ' · ' + data.devicesCount + ' ' + data.L.devices : '')
+    $('updated').textContent = data.L.updated + ' ' + data.time + (data.devicesCount > 1 ? ' · ' + data.L.devices + ' ' + data.devicesCount : '')
     $('rings').replaceChildren(...data.windows.map(ring))
     $('forecast').classList.toggle('hidden', !data.eta)
     $('forecast').textContent = data.eta ? '🔥 ' + data.L.forecast + ' ' + data.eta : ''
@@ -946,4 +946,4 @@ function panelHtml() {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, __test: { findClaudeBinaries, noDataHelp, prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }
+module.exports = { activate, deactivate, __test: { STR, findClaudeBinaries, noDataHelp, prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }

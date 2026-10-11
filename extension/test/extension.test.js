@@ -102,7 +102,7 @@ test('"no data" explains itself: folder missing, folder empty, files unreadable'
   const ru = setup({ lang: 'ru' })
   fs.rmSync(ru.sessDir, { recursive: true })
   ru.start()
-  assert.match(ru.tooltip(), /Папка не найдена/)
+  assert.match(ru.tooltip(), /Папки с данными нет/)
 })
 
 test('"no data" shows the note the plugin left, or says the plugin is silent', () => {
@@ -444,8 +444,8 @@ test('Russian: grammar-sensitive strings render and nothing is left untranslated
   t.write('s.json', session({ fiveHour: 95 }))
   t.start()
   assert.match(t.text(), /5ч 95%/)
-  assert.match(t.log.error[0], /лимит почти исчерпан/)
-  assert.match(t.tooltip(), /Окно 5 часов/)
+  assert.match(t.log.error[0], /использовано 95%, остаётся совсем немного/)
+  assert.match(t.tooltip(), /5-часовой лимит/)
   t.stop()
 })
 
@@ -685,4 +685,22 @@ test('CSV raw rows carry the kind split with readable names, in the interface la
   ru.write('s.json', session({ buckets: { [h]: 1000 }, detail: { [h]: { m: { m: 1000 }, p: { web: 1000 }, k: { i: 50, o: 150, w: 100, r: 700 } } } }))
   ru.start()
   assert.ok((await exportAs(ru, 'long')).includes(';тип;Чтение кэша;700'))
+})
+
+test('both languages have the same keys, no empty strings, and Russian text is really Russian', () => {
+  const { STR } = setup().ext.__test
+  assert.deepEqual(Object.keys(STR.ru).sort(), Object.keys(STR.en).sort(), 'every string exists in both languages')
+  for (const [lang, dict] of Object.entries(STR)) {
+    for (const [k, v] of Object.entries(dict)) {
+      if (typeof v === 'string') assert.ok(v.trim().length > 0, `${lang}.${k} is empty`)
+      if (Array.isArray(v)) assert.equal(v.length, 7, `${lang}.${k}`)
+    }
+  }
+  // a few words that read badly in Russian before; they must not come back
+  const ruText = JSON.stringify(STR.ru)
+  for (const bad of ['Окно 5 часов', 'Новый ввод', 'Записка', 'ориентируйтесь', 'Ищу данные', 'Срез']) assert.ok(!ruText.includes(bad), bad)
+  for (const k of ['kindsNote', 'note', 'setupAsk', 'noFolder', 'pluginSilent']) assert.match(STR.ru[k], /[а-яё]{4}/i, k)
+  // the names read well inside alerts
+  assert.equal(STR.ru.warnMsg(STR.ru.win5, 85), 'Claude: 5-часовой лимит — использовано 85%')
+  assert.equal(STR.ru.resetMsg(STR.ru.winWeek), 'Claude: Недельный лимит сброшен — можно продолжать работу')
 })
