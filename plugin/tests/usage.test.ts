@@ -10,7 +10,6 @@ const usageOf = (model: string, n: number) => ({
   cache_read_input_tokens: 0,
 })
 
-// A tiny world under the plugin: a session id, a folder name, a file system in a Map.
 const world = (on: any, sid: { v: string }, files: Map<string, string>) => {
   mock.clock(on, { now: NOW })
   mock.env(on, { HOME: '/home/u', LANG: 'en_US.UTF-8' })
@@ -21,13 +20,11 @@ const world = (on: any, sid: { v: string }, files: Map<string, string>) => {
     return { value: undefined }
   })
   on('fs.read', (_$: any, e: any) => {
-    // the plugin's manifest sits wherever the engine put the plugin: serve it from the 'MANIFEST' entry
     if (e.path.endsWith('.claude-plugin/plugin.json') && files.has('MANIFEST')) return { value: files.get('MANIFEST') }
     if (!files.has(e.path)) throw new Error('ENOENT')
     return { value: files.get(e.path) }
   })
   on('ui.status', () => ({ value: undefined }))
-  // what the engine itself answers beneath the plugin
   on('turn.complete', () => ({ text: '' }))
   on('session.measure', (_$: any, e: any) => ({ changed: e.changed }))
 }
@@ -53,7 +50,7 @@ test('odd usage numbers never poison the totals', async ($, on) => {
   world(on, { v: 's1' }, files)
   await complete($, { model: 'm', input_tokens: -5, output_tokens: Number.NaN, cache_creation_input_tokens: undefined, cache_read_input_tokens: 7 })
   expect(fileOf(files, 's1').tokens).toBe(7)
-  await complete($, undefined) // an interrupted turn has no usage
+  await complete($, undefined)
   expect(fileOf(files, 's1').tokens).toBe(7)
 })
 
@@ -118,7 +115,6 @@ test('a session with no subscription limits still counts tokens', async ($, on) 
   expect(f.tokens).toBe(10)
 })
 
-// Windows: no HOME, a USERPROFILE, backslash paths
 const winWorld = (on: any, files: Map<string, string>, env: Record<string, string>, cwd: string) => {
   mock.clock(on, { now: NOW })
   mock.env(on, env)
@@ -139,7 +135,6 @@ test('Windows: the home folder comes from USERPROFILE and the project from a bac
   const files = new Map<string, string>()
   winWorld(on, files, { USERPROFILE: 'C:\\Users\\andy' }, 'C:\\work\\my-project')
   await complete($, usageOf('m', 10))
-  // the test engine runs on a POSIX host and prefixes a drive path with its cwd; a real Windows host does not
   const key = [...files.keys()].find(k => k.endsWith('C:\\Users\\andy\\.claude\\usage-monitor\\w1.json'))
   expect(key).toBeDefined()
   const f = JSON.parse(files.get(key!) ?? 'null')
@@ -187,7 +182,7 @@ test('a note in the plugin folder says the plugin loaded, and what failed when a
   on('session.start', (_$: any, e: any) => ({ cwd: e.cwd }))
   on('turn.complete', () => ({ text: '' }))
   await $.session.start({ cwd: '/p' })
-  await complete($, usageOf('m', 5)) // the refused write must not break the turn
+  await complete($, usageOf('m', 5))
   const note = [...files.entries()].find(([k]) => k.endsWith('diagnostics.txt'))
   expect(note).toBeDefined()
   expect(note![1]).toContain('error at')
@@ -206,7 +201,7 @@ test('tokens are split by kind: new input, output, cache writes, cache reads', a
   const hour = String(Math.floor(NOW / HOUR) * HOUR)
   expect(f.detail[hour].k).toEqual({ i: 11, o: 22, w: 303, r: 4004 })
   expect(f.tokens).toBe(11 + 22 + 303 + 4004)
-  expect(f.buckets[hour]).toBe(f.tokens) // the split always adds up to the total
+  expect(f.buckets[hour]).toBe(f.tokens)
 })
 
 test('kinds survive odd numbers and a resumed session', async ($, on) => {

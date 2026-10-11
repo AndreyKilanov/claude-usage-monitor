@@ -1,0 +1,8 @@
+{
+  "name": "claude-usage-monitor-workspace",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"extension/test/*.test.js\"",
+    "build": "./scripts/build-vsix.sh"
+  }
+}

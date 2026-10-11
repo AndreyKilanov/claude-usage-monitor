@@ -30,7 +30,7 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 | --- | --- |
 | **Status bar** | `5h 38% · wk 5% · today 1.2M`; turns yellow / red at 80% / 90% (configurable) |
 | **Hover** | progress bars and the time to reset for the 5-hour and weekly limits |
-| **Menu** (click) | panel, copy a one-line summary, export CSV, refresh, settings, install / update the plugin, help |
+| **Menu** (click) | panel, copy a one-line summary, export CSV, refresh, open the data folder, settings, install / update the plugin, help |
 | **Panel** | an *All projects / this project* switch, ring gauges, 24-hour / 7-day / 30-day charts, **what the tokens are made of** (cache reads / writes, new input, output), breakdown by model and by project |
 | **Alerts** | a notification when a limit crosses the warning / critical percent, and when it resets |
 | **Forecast** | "at this pace the 5-hour limit runs out in 23 min" — only when it would happen before the reset |
@@ -60,7 +60,7 @@ Why two parts: the Claude panel inside VS Code-style editors cannot draw custom 
 
 ### 1. The plugin (every machine)
 
-**Easiest:** install the extension first, then click the `Claude: no data` item in the status bar (or run **Claude Usage: Install the plugin** from the Command Palette). It finds Claude Code on your machine and, after you confirm, installs the plugin for you.
+**Easiest:** install the extension first. On its first start it offers to set the plugin up (one button; you still confirm the exact commands). You can also click the `Claude: no data` item in the status bar at any time, or run **Claude Usage: Install the plugin** from the Command Palette. It finds Claude Code on your machine and, after you confirm, installs the plugin for you.
 
 Or by hand, in a Claude Code terminal session:
 
@@ -91,6 +91,7 @@ Send any message. The numbers appear after the first reply (sessions started bef
 | `claudeUsage.notifications` | `true` | notify when a threshold is crossed |
 | `claudeUsage.notifyOnReset` | `true` | notify when a limit that was high resets |
 | `claudeUsage.syncFolder` | empty | shared folder to add up several devices |
+| `claudeUsage.offerPluginInstall` | `true` | offer to set the plugin up on the first start when it is missing |
 | `claudeUsage.csvDelimiter` | `auto` | `auto` (`;` for Russian, `,` otherwise), `,`, `;` or `tab` |
 | `claudeUsage.numberGrouping` | `auto` | `13 240 843` (`auto` follows the language: space for Russian, comma for English), `space`, `dot`, `comma` or `none` |
 | `claudeUsage.refreshIntervalSeconds` | `30` | how often the bar redraws (files are also watched every 3 s) |
@@ -126,7 +127,7 @@ cd claude-usage-monitor
 ./scripts/build-vsix.sh        # writes dist/claude-usage-monitor-<version>.vsix
 claude plugin validate plugin   # plugin checks
 claude plugin test plugin       # plugin tests
-node --test extension/test/extension.test.js   # extension tests
+node --test "extension/test/*.test.js"   # extension tests
 ```
 
 No dependencies and no build step: the extension is a single JavaScript file.
@@ -155,7 +156,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 | --- | --- |
 | **Строка состояния** | `5ч 38% · нед 5% · сегодня 1.2M`. При 80% становится жёлтой, при 90% красной (пороги настраиваются) |
 | **Подсказка** | шкалы лимитов (5 часов и неделя) и время до сброса |
-| **Меню** (по клику) | панель, копирование краткой сводки, экспорт в CSV, обновление, настройки, установка и обновление плагина, справка |
+| **Меню** (по клику) | панель, копирование краткой сводки, экспорт в CSV, обновление, открыть папку с данными, настройки, установка и обновление плагина, справка |
 | **Панель** | переключатель «Все проекты / этот проект», кольца лимитов, графики за сутки, 7 и 30 дней, **состав токенов** (чтение и запись кэша, новый запрос, ответ), расход по моделям и по проектам |
 | **Оповещения** | уведомление, когда лимит достигает порога, и когда он сбрасывается |
 | **Прогноз** | «при таком темпе 5-часовой лимит закончится через 23 мин». Показывается, только если лимит кончится раньше сброса |
@@ -177,7 +178,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 
 ## Установка
 
-1. **Плагин** нужно поставить на каждом компьютере. **Самый простой способ:** сначала установите расширение, затем нажмите на `Claude: нет данных` в строке состояния (или выберите команду **Claude Usage: Install the plugin** в палитре команд). Расширение само найдёт Claude Code, покажет, что собирается выполнить, и после вашего согласия установит плагин. Можно и вручную, в терминальной сессии Claude Code:
+1. **Плагин** нужно поставить на каждом компьютере. **Самый простой способ:** сначала установите расширение: при первом запуске оно само предложит поставить плагин (одна кнопка, а точные команды вы всё равно подтверждаете). Можно и в любой момент нажать на `Claude: нет данных` в строке состояния (или выберите команду **Claude Usage: Install the plugin** в палитре команд). Расширение само найдёт Claude Code, покажет, что собирается выполнить, и после вашего согласия установит плагин. Можно и вручную, в терминальной сессии Claude Code:
 
    ```
    /plugin install usage-monitor --marketplace AndreyKilanov/claude-usage-monitor

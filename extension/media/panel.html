@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{{nonce}}';">
+<style>
+{{css}}
+</style>
+</head>
+<body>
+  <div class="hero"><h1 id="title"></h1><div class="muted" id="updated"></div><a class="ver" id="ver" href="#"></a></div>
+  <div class="warnbox hidden" id="pbanner" style="margin:0 0 14px"></div>
+  <div class="grid" id="rings"></div>
+  <div class="forecast hidden" id="forecast"></div>
+  <div class="controls"><div class="tabs" id="tabs"></div><div class="tabs" id="scope"></div></div>
+  <div class="card">
+    <div class="head"><span class="label" id="plabel"></span><span class="big" id="ptotal"></span></div>
+    <div class="sub" id="psub"></div>
+    <div class="chart" id="chart"></div>
+  </div>
+  <div class="card" id="kcard" style="margin-top:12px">
+    <div class="label" id="klabel"></div>
+    <div class="stack" id="stack"></div>
+    <div id="legend"></div>
+    <div class="sub" id="knote"></div>
+    <div class="warnbox hidden" id="koutdated"></div>
+  </div>
+  <div class="cols2" id="cols2">
+    <div class="card"><div class="label" id="mlabel"></div><div id="models"></div></div>
+    <div class="card" id="pcard"><div class="label" id="plabel2"></div><div id="projects"></div></div>
+  </div>
+  <div class="actions"><span class="muted" id="note"></span><button class="btn" id="csv"></button></div>
+<script nonce="{{nonce}}">
+{{script}}
+</script>
+</body>
+</html>

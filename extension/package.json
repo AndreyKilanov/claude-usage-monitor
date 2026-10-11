@@ -2,7 +2,7 @@
   "name": "claude-usage-monitor",
   "displayName": "Claude Usage Monitor — Limits & Tokens",
   "description": "Claude Code 5-hour and weekly limits, tokens by day, model and project, alerts and a pace forecast in the status bar. Unofficial. Русский / English.",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "publisher": "andreykilanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -36,32 +36,36 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./extension.js",
+  "main": "./src/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "claudeUsage.open",
-        "title": "Claude Usage: Open Panel"
+        "title": "%command.open.title%"
       },
       {
         "command": "claudeUsage.refresh",
-        "title": "Claude Usage: Refresh"
+        "title": "%command.refresh.title%"
       },
       {
         "command": "claudeUsage.exportCsv",
-        "title": "Claude Usage: Export CSV"
+        "title": "%command.exportCsv.title%"
       },
       {
         "command": "claudeUsage.setup",
-        "title": "Claude Usage: Install the plugin"
+        "title": "%command.setup.title%"
       },
       {
         "command": "claudeUsage.menu",
-        "title": "Claude Usage: Menu"
+        "title": "%command.menu.title%"
+      },
+      {
+        "command": "claudeUsage.openDataFolder",
+        "title": "%command.openDataFolder.title%"
       }
     ],
     "configuration": {
-      "title": "Claude Usage Monitor",
+      "title": "%config.title%",
       "properties": {
         "claudeUsage.language": {
           "type": "string",
@@ -71,62 +75,62 @@
             "ru"
           ],
           "default": "auto",
-          "description": "Interface language. auto follows the editor language (Russian or English)."
+          "description": "%config.language.description%"
         },
         "claudeUsage.showFiveHour": {
           "type": "boolean",
           "default": true,
-          "description": "Show the 5-hour limit in the status bar."
+          "description": "%config.showFiveHour.description%"
         },
         "claudeUsage.showWeek": {
           "type": "boolean",
           "default": true,
-          "description": "Show the weekly limit in the status bar."
+          "description": "%config.showWeek.description%"
         },
         "claudeUsage.showToday": {
           "type": "boolean",
           "default": true,
-          "description": "Show tokens spent today in the status bar."
+          "description": "%config.showToday.description%"
         },
         "claudeUsage.showResetTimer": {
           "type": "boolean",
           "default": false,
-          "description": "Show the time until the 5-hour window resets next to its percentage."
+          "description": "%config.showResetTimer.description%"
         },
         "claudeUsage.warnAt": {
           "type": "number",
           "default": 80,
           "minimum": 1,
           "maximum": 99,
-          "description": "Percent at which the status bar turns to a warning."
+          "description": "%config.warnAt.description%"
         },
         "claudeUsage.critAt": {
           "type": "number",
           "default": 90,
           "minimum": 1,
           "maximum": 100,
-          "description": "Percent at which the status bar turns red."
+          "description": "%config.critAt.description%"
         },
         "claudeUsage.notifications": {
           "type": "boolean",
           "default": true,
-          "description": "Notify when a limit crosses the warning / critical percent."
+          "description": "%config.notifications.description%"
         },
         "claudeUsage.notifyOnReset": {
           "type": "boolean",
           "default": true,
-          "description": "Notify when a limit that was in the warning zone resets."
+          "description": "%config.notifyOnReset.description%"
         },
         "claudeUsage.refreshIntervalSeconds": {
           "type": "number",
           "default": 30,
           "minimum": 10,
-          "description": "How often the status bar re-reads the data, in seconds."
+          "description": "%config.refreshIntervalSeconds.description%"
         },
         "claudeUsage.syncFolder": {
           "type": "string",
           "default": "",
-          "description": "Optional folder shared between your devices (iCloud Drive, Dropbox, Syncthing…). Each device copies its usage files there and adds up the others, so \"today\" covers all devices. Leave empty to stay on this machine."
+          "description": "%config.syncFolder.description%"
         },
         "claudeUsage.csvDelimiter": {
           "type": "string",
@@ -137,7 +141,7 @@
             "tab"
           ],
           "default": "auto",
-          "description": "CSV column separator. auto uses ';' for Russian (what Excel expects there) and ',' otherwise."
+          "description": "%config.csvDelimiter.description%"
         },
         "claudeUsage.numberGrouping": {
           "type": "string",
@@ -150,13 +154,13 @@
           ],
           "default": "auto",
           "enumDescriptions": [
-            "Follow the interface language: 13 240 843 (ru) or 13,240,843 (en)",
-            "13 240 843",
-            "13.240.843",
-            "13,240,843",
-            "13240843"
+            "%config.numberGrouping.enum.0%",
+            "%config.numberGrouping.enum.1%",
+            "%config.numberGrouping.enum.2%",
+            "%config.numberGrouping.enum.3%",
+            "%config.numberGrouping.enum.4%"
           ],
-          "description": "How long token counts are grouped in the tooltip, the panel and all CSV exports. Choose `none` when you feed the CSV to a pivot table or a script and want plain numbers."
+          "description": "%config.numberGrouping.description%"
         },
         "claudeUsage.clickAction": {
           "type": "string",
@@ -166,10 +170,15 @@
           ],
           "default": "menu",
           "enumDescriptions": [
-            "Open a small menu: panel, copy summary, export, refresh, settings, help",
-            "Open the detail panel directly"
+            "%config.clickAction.enum.0%",
+            "%config.clickAction.enum.1%"
           ],
-          "description": "What a click on the status bar item does."
+          "description": "%config.clickAction.description%"
+        },
+        "claudeUsage.offerPluginInstall": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.offerPluginInstall.description%"
         }
       }
     }

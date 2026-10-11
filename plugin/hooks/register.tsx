@@ -50,7 +50,6 @@ const line = (u: Usage, now: number, ru: boolean) => {
 const HOUR = 3600_000
 const KEEP = 35 * 24 * HOUR
 
-// macOS and Linux set HOME; Windows sets USERPROFILE (or HOMEDRIVE + HOMEPATH) instead.
 const homeDir = async ($: any): Promise<string | undefined> => {
   const home = (await $.env.get('HOME')) || (await $.env.get('USERPROFILE'))
   if (home) return home
@@ -59,15 +58,12 @@ const homeDir = async ($: any): Promise<string | undefined> => {
   return drive && path ? `${drive}${path}` : undefined
 }
 
-// One separator for the whole path: Windows homes use backslashes, and a path half "\\" and half "/" is asked for trouble.
 const joinPath = (base: string, ...parts: string[]) => {
   const sep = base.includes('\\') ? '\\' : '/'
   return [base.replace(/[\\/]+$/, ''), ...parts].join(sep)
 }
 const dataFile = (home: string, sid: string) => joinPath(home, '.claude', 'usage-monitor', `${sid}.json`)
 
-// A note left inside the plugin's own folder, so a machine where nothing shows up can say why:
-// "loaded" proves the plugin runs; "error" carries what failed and where.
 const diag = async ($: any, kind: 'loaded' | 'error', detail: string) => {
   try {
     const now = await $.clock.now()
@@ -76,11 +72,9 @@ const diag = async ($: any, kind: 'loaded' | 'error', detail: string) => {
       `${kind} at ${new Date(now).toISOString()}\n${detail}\n`,
     )
   } catch {
-    // nowhere left to report to
   }
 }
 
-// The plugin's own version, read once from its manifest, so the editor extension can tell an old plugin from a current one.
 let versionCache: string | null | undefined
 const pluginVersion = async ($: any): Promise<string | null> => {
   if (versionCache !== undefined) return versionCache
@@ -93,7 +87,6 @@ const pluginVersion = async ($: any): Promise<string | null> => {
   return versionCache
 }
 
-// The folder name of the session's working directory: the project this session belongs to.
 const projectName = async ($: any): Promise<string | null> => {
   try {
     return (await $.session.cwd()).split(/[\\/]/).filter(Boolean).pop() || null
@@ -110,9 +103,6 @@ const maxMerge = (a: Record<string, number>, b: Record<string, number>) => {
 
 let hydrated = false
 
-// Makes the counters belong to the live session: after /clear the state may still hold the previous
-// session's numbers (they are already in its own file, so keep them out of the new one), and a resumed
-// session starts from what its file already holds instead of overwriting it with less.
 const adopt = async ($: any) => {
   try {
     const sid: string = await $.session.id()
@@ -138,7 +128,7 @@ const adopt = async ($: any) => {
     try {
       old = JSON.parse(await $.fs.read(dataFile(home, sid)))
     } catch {
-      return // no file yet, or half-written: nothing to merge
+      return
     }
     if (!old || typeof old !== 'object') return
     await update($, usage, c => {
@@ -155,7 +145,6 @@ const adopt = async ($: any) => {
       }
     })
   } catch {
-    // never let bookkeeping break a turn
   }
 }
 
@@ -167,7 +156,6 @@ const persist = async ($: any) => {
     const u = await read($, usage)
     const now = await $.clock.now()
     const sid = await $.session.id()
-    // one file per session: a single writer each, so two windows can never tear each other's data
     const target = dataFile(home, sid)
     try {
       await $.fs.write(target, JSON.stringify({ ...u, v: await pluginVersion($), project: await projectName($), updatedAt: now }))
@@ -176,12 +164,10 @@ const persist = async ($: any) => {
     }
   } catch (err) {
     await diag($, 'error', `persist failed\n${String(err)}`)
-    // the status bar is a convenience: never let it break a turn
   }
 }
 
 export const register: Register = on => {
-  // The data folder shows up the moment a session starts, not only after its first reply.
   on('session.start', async ($, e, next) => {
     const home = await homeDir($)
     await diag($, 'loaded', `home: ${home ?? '(none found)'}\nplugin: ${$.plugin.root}`)

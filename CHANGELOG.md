@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.4
+
+- **First-run offer to set up the plugin.** The first time the extension starts and the Claude Code plugin it needs is nowhere to be found (no data folder, not switched on in your Claude settings), it asks once, a few seconds after startup: *Set up… / Later / Don't ask again*. *Set up…* opens the usual confirmation that lists the exact commands, and nothing runs until you confirm there. It never asks when there is data, when the plugin has run at least once, or when `claudeUsage.offerPluginInstall` is off; *Later* asks again next start, *Don't ask again* is final.
+- **Open data folder**: a new menu entry and command (`Claude Usage: Open data folder`) that reveals `~/.claude/usage-monitor` in Finder / Explorer, or says the folder does not exist yet.
+- **Week pace note**: the weekly limit card says how much of the 7-day window has passed and gives a one-line verdict (spending too fast / plenty of headroom / right on pace).
+- **Localized settings and commands**: command titles, setting names and descriptions come from `package.nls.json` / `package.nls.ru.json`, so the settings page follows the editor language.
+- **Refactor**: the single 1100-line `extension.js` is split into `src/` modules (`data`, `ui`, `plugin`, `features`, `i18n`, `util`) and `media/` (panel HTML, CSS, script). No file is longer than 500 lines (a test enforces it), and comments that only repeated the code are gone.
+- Tests: 71 extension tests in topic files (`extension/test/*.test.js`), 18 plugin tests.
+
 ## 0.6.3
 
 - **"Only this project" switch** in the panel: *All projects* / *📁 the open folder*. It narrows tokens, charts, the token split and models to the sessions of the project open in this editor window (matched by folder name, case-insensitive; older data falls back to the folder with most of the session's tokens). Limits stay account-wide, and the status bar keeps counting every project.

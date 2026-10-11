@@ -1,0 +1,130 @@
+const test = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('fs')
+const path = require('path')
+const { setup } = require('./helpers/harness')
+const { HOUR: H, iso, hourNow, session, day } = require('./helpers/fixtures')
+
+test('no data at all: a calm message, no crash', () => {
+  const t = setup().start()
+  assert.match(t.text(), /no data/)
+  t.stop()
+})
+
+test('"no data" explains itself: folder missing, folder empty, files unreadable', () => {
+  const missing = setup()
+  fs.rmSync(missing.sessDir, { recursive: true })
+  missing.start()
+  assert.match(missing.tooltip(), /Folder not found/)
+  assert.match(missing.tooltip(), /plugin install usage-monitor/)
+  assert.ok(missing.tooltip().includes(missing.sessDir), 'shows where it looks')
+  const empty = setup().start()
+  assert.match(empty.tooltip(), /no session files yet/)
+  const bad = setup()
+  bad.write('x.json', '{"torn":')
+  bad.start()
+  assert.match(bad.tooltip(), /could not be read/)
+  const ru = setup({ lang: 'ru' })
+  fs.rmSync(ru.sessDir, { recursive: true })
+  ru.start()
+  assert.match(ru.tooltip(), /Папки с данными нет/)
+})
+
+test('"no data" shows the note the plugin left, or says the plugin is silent', () => {
+  const silent = setup()
+  fs.rmSync(silent.sessDir, { recursive: true })
+  silent.start()
+  assert.match(silent.tooltip(), /left no note on this machine/)
+
+  const loud = setup()
+  fs.rmSync(loud.sessDir, { recursive: true })
+  const pluginDir = path.join(loud.home, '.claude', 'plugins', 'cache', 'claude-usage-monitor', 'usage-monitor', '0.5.4')
+  fs.mkdirSync(pluginDir, { recursive: true })
+  fs.writeFileSync(path.join(pluginDir, 'diagnostics.txt'), 'error at 2026-10-11T10:00:00.000Z\ncould not write C:\\Users\\a\\.claude\\usage-monitor\\s.json\nEPERM: operation not permitted\n')
+  loud.start()
+  assert.match(loud.tooltip(), /Note from the plugin/)
+  assert.match(loud.tooltip(), /EPERM: operation not permitted/)
+  assert.doesNotMatch(loud.tooltip(), /left no note/)
+
+  const other = setup()
+  fs.rmSync(other.sessDir, { recursive: true })
+  const odd = path.join(other.home, '.claude', 'plugins', 'cache', 'someone-else', 'tool', '1.0')
+  fs.mkdirSync(odd, { recursive: true })
+  fs.writeFileSync(path.join(odd, 'diagnostics.txt'), 'not ours')
+  other.start()
+  assert.doesNotMatch(other.tooltip(), /not ours/)
+})
+
+test('a half-written file is skipped and the good one is used', () => {
+  const t = setup()
+  t.write('torn.json', '{"fiveHour":43,"updatedAt":17917\0\0\0\0')
+  t.write('ok.json', session({ fiveHour: 55 }))
+  t.start()
+  assert.match(t.text(), /5h 55%/)
+  t.stop()
+})
+
+test('strange values never print NaN or undefined', () => {
+  const t = setup()
+  t.write('weird.json', { fiveHour: 'lots', sevenDay: {}, limits: [null, 5, { kind: 3 }, { kind: 'five_hour', percentUsed: 'x' }], tokens: 'many', usd: NaN, updatedAt: 'now', buckets: { abc: 5, [hourNow()]: 'x', [hourNow() - H]: -5 }, detail: 7 })
+  t.write('array.json', '[1,2,3]')
+  t.write('null.json', 'null')
+  t.start()
+  assert.doesNotMatch(t.text() + t.tooltip(), /NaN|undefined|null|Infinity/)
+  t.stop()
+})
+
+test('a window that has reset since the last reading is shown empty, not stale', () => {
+  const t = setup()
+  t.write('old.json', session({ fiveHour: 97, fiveHourResetsAt: iso(-H), sevenDay: 20, limits: [{ kind: 'five_hour', percentUsed: 97, resetsAt: iso(-H) }] }))
+  t.start()
+  assert.match(t.text(), /5h 0%/)
+  assert.deepEqual(t.log.warn.concat(t.log.error), [])
+  t.stop()
+})
+
+test('a misordered threshold pair (warn above critical) still gives sane colours', () => {
+  const t = setup({ config: { warnAt: 95, critAt: 90 } })
+  t.write('s.json', session({ fiveHour: 92 }))
+  t.start()
+  assert.equal(t.items[0].backgroundColor.id, 'statusBarItem.errorBackground')
+  t.stop()
+})
+
+test('the status item installs the plugin when it is missing, otherwise opens the menu (or the panel, by setting)', () => {
+  const missing = setup()
+  fs.rmSync(missing.sessDir, { recursive: true })
+  missing.start()
+  assert.equal(missing.items[0].command, 'claudeUsage.setup')
+  assert.match(missing.tooltip(), /Click to install the plugin/)
+  const ok = setup()
+  ok.write('s.json', session())
+  ok.start()
+  assert.equal(ok.items[0].command, 'claudeUsage.menu')
+  const panelFirst = setup({ config: { clickAction: 'panel' } })
+  panelFirst.write('s.json', session())
+  panelFirst.start()
+  assert.equal(panelFirst.items[0].command, 'claudeUsage.open')
+})
+
+test('tooltip: the header row is a real table row that lines up with the limit rows, in both languages', () => {
+  for (const lang of ['en', 'ru']) {
+    const t = setup({ lang })
+    t.write('a.json', day('p', 10, { v: '0.6.3', limits: [{ kind: 'five_hour', percentUsed: 38, resetsAt: iso(2 * H) }, { kind: 'seven_day', percentUsed: 5, resetsAt: iso(80 * H) }] }))
+    t.start()
+    const table = t.tooltip().split('\n').filter(l => l.startsWith('|'))
+    assert.equal(table.length, 4, 'header, alignment, two limit rows')
+    const cols = row => row.split(/(?<!\\)\|/).length - 2
+    assert.deepEqual(table.map(cols), [4, 4, 4, 4], `${lang}: every row has the same four cells`)
+    assert.match(table[1], /^\|:--\|:--\|--:\|--:\|$/)
+    assert.match(table[2], /\| (5h|5 ч|[^|]*) \|/)
+    assert.match(table[2].split('|')[4], /\S/, 'the reset text is in the last column')
+  }
+})
+
+test('tooltip: an up-to-date plugin leaves no warning line', () => {
+  const t = setup()
+  t.write('a.json', day('p', 10, { v: '0.6.3' }))
+  t.start()
+  assert.ok(!t.tooltip().includes('⚠'))
+})
