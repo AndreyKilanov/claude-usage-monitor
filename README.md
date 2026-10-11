@@ -78,6 +78,7 @@ Send any message. The numbers appear after the first reply (sessions started bef
 | `claudeUsage.notifyOnReset` | `true` | notify when a limit that was high resets |
 | `claudeUsage.syncFolder` | empty | shared folder to add up several devices |
 | `claudeUsage.csvDelimiter` | `auto` | `auto` (`;` for Russian, `,` otherwise), `,`, `;` or `tab` |
+| `claudeUsage.numberGrouping` | `auto` | `13 240 843` (`auto` follows the language: space for Russian, comma for English), `space`, `dot`, `comma` or `none` |
 | `claudeUsage.refreshIntervalSeconds` | `30` | how often the bar redraws (files are also watched every 3 s) |
 
 Commands (Command Palette): **Claude Usage: Open Panel**, **Refresh**, **Export CSV**.

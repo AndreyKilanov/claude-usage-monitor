@@ -130,6 +130,25 @@
           ],
           "default": "auto",
           "description": "CSV column separator. auto uses ';' for Russian (what Excel expects there) and ',' otherwise."
+        },
+        "claudeUsage.numberGrouping": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "space",
+            "dot",
+            "comma",
+            "none"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "Follow the interface language: 13 240 843 (ru) or 13,240,843 (en)",
+            "13 240 843",
+            "13.240.843",
+            "13,240,843",
+            "13240843"
+          ],
+          "description": "How long token counts are grouped in the tooltip, the panel and the CSV tables (not in the raw-rows CSV, which stays numeric for pivot tables)."
         }
       }
     }

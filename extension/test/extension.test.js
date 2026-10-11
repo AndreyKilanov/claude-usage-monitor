@@ -259,7 +259,7 @@ function twoDays(t) {
 }
 
 test('CSV by day and model: a readable table with a total row, BOM and CRLF', async () => {
-  const t = setup()
+  const t = setup({ config: { numberGrouping: 'none' } })
   const y = twoDays(t)
   t.start()
   const csv = await exportAs(t, 'model')
@@ -274,7 +274,7 @@ test('CSV by day and model: a readable table with a total row, BOM and CRLF', as
 })
 
 test('CSV by day and project, and the raw rows format', async () => {
-  const t = setup()
+  const t = setup({ config: { numberGrouping: 'none' } })
   twoDays(t)
   t.start()
   const byProject = (await exportAs(t, 'project')).slice(1).trim().split('\r\n').map(r => r.split(','))
@@ -302,7 +302,7 @@ test('CSV in Russian: Cyrillic headers and ";" so Excel splits the columns', asy
 })
 
 test('CSV: more than eight models fold into Other, nothing is lost', async () => {
-  const t = setup()
+  const t = setup({ config: { numberGrouping: 'none' } })
   const buckets = {}
   const detail = {}
   for (let i = 0; i < 12; i++) { buckets[hourNow() - i * H] = 100 * (i + 1); detail[hourNow() - i * H] = { m: { [`claude-model-${i}-0`]: 100 * (i + 1) }, p: {} } }
@@ -392,4 +392,41 @@ test('Russian: grammar-sensitive strings render and nothing is left untranslated
   assert.match(t.log.error[0], /лимит почти исчерпан/)
   assert.match(t.tooltip(), /Окно 5 часов/)
   t.stop()
+})
+
+test('digit grouping: spaces for Russian, commas for English, dots and none on request', () => {
+  const g = (lang, style) => { const t = setup({ lang, config: style ? { numberGrouping: style } : {} }); t.start(); return t }
+  const ru = g('ru'); ru.write('s.json', session({ buckets: { [hourNow()]: 13240843 } })); ru.refresh()
+  assert.match(ru.tooltip(), /13\u00A0240\u00A0843/)
+  const en = g('en'); en.write('s.json', session({ buckets: { [hourNow()]: 13240843 } })); en.refresh()
+  assert.match(en.tooltip(), /13,240,843/)
+  const dot = g('en', 'dot'); dot.write('s.json', session({ buckets: { [hourNow()]: 13240843 } })); dot.refresh()
+  assert.match(dot.tooltip(), /13\.240\.843/)
+  const none = g('ru', 'none'); none.write('s.json', session({ buckets: { [hourNow()]: 13240843 } })); none.refresh()
+  assert.match(none.tooltip(), /13240843/)
+})
+
+test('digit grouping edge values', () => {
+  const t = setup({ lang: 'en' })
+  t.start()
+  const run = n => { t.write('s.json', session({ buckets: { [hourNow()]: n } })); t.refresh(); return t.tooltip() }
+  assert.match(run(999), /Today: \*\*999\*\*/)
+  assert.match(run(1000), /Today: \*\*1,000\*\*/)
+  assert.match(run(1234567890123), /1,234,567,890,123/)
+  assert.match(run(0), /Today: \*\*0\*\*/)
+})
+
+test('CSV tables are grouped by the same rule; raw rows stay plain numbers for pivots', async () => {
+  const t = setup({ lang: 'ru' })
+  t.write('s.json', session({ buckets: { [hourNow()]: 13240843 }, detail: { [hourNow()]: { m: { 'claude-sonnet-5-5': 13240843 }, p: { web: 13240843 } } } }))
+  t.start()
+  const table = await exportAs(t, 'model')
+  assert.ok(table.includes('13\u00A0240\u00A0843'), table)
+  const raw = await exportAs(t, 'long')
+  assert.ok(raw.includes(';13240843'), raw)
+  assert.ok(!raw.includes('\u00A0'))
+  const en = setup({ lang: 'en' })
+  en.write('s.json', session({ buckets: { [hourNow()]: 13240843 } }))
+  en.start()
+  assert.ok((await exportAs(en, 'model')).includes('"13,240,843"'), 'a comma group inside a comma-separated file is quoted')
 })

@@ -87,6 +87,17 @@ const csvDelimiter = () => {
 }
 
 const pct = p => (num(p) === null ? '—' : `${Math.round(num(p))}%`)
+// 13240843 -> "13 240 843" (a no-break space, which is also what Russian Excel / Numbers read as a thousands separator)
+// or "13,240,843" / "13.240.843"; `auto` follows the interface language.
+const groupNum = n => {
+  const style = cfg('numberGrouping', 'auto')
+  const v = Math.round(Number(n))
+  if (!Number.isFinite(v)) return '0'
+  const sep = { none: '', space: '\u00A0', dot: '.', comma: ',' }[style] ?? (L === STR.ru ? '\u00A0' : ',')
+  const digits = String(Math.abs(v))
+  return (v < 0 ? '-' : '') + (sep ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, sep) : digits)
+}
+
 const tok = n => (!Number.isFinite(Number(n)) ? '0' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(Math.round(n || 0)))
 const fmtMs = ms => {
   const m = Math.round(ms / 60000)
@@ -408,7 +419,7 @@ function activate(context) {
     lines.push(['| | | | |', '|:--|:--|--:|:--|', ...rows].join('\n'))
     if (eta) lines.push(`$(flame) ${L.forecast} **${fmtMs(eta)}**`)
     lines.push('---')
-    lines.push(`${L.todayLine}: **${today.total.toLocaleString(L.locale)}** ${L.tokens} · ${L.sessions}: ${t.sessionsToday}`)
+    lines.push(`${L.todayLine}: **${groupNum(today.total)}** ${L.tokens} · ${L.sessions}: ${t.sessionsToday}`)
     lines.push(u.usd != null ? `${L.curSession}: ${tok(u.tokens)} ${L.tokens} · $${Number(u.usd).toFixed(2)}` : `${L.curSession}: ${tok(u.tokens)} ${L.tokens}`)
     item.tooltip = new vscode.MarkdownString(lines.join('\n\n'), true)
     item.show()
@@ -421,6 +432,7 @@ function activate(context) {
       const p = t.periods[key]
       return {
         total: p.total,
+        totalText: groupNum(p.total),
         bars: p.bars.map(b => ({ label: b.label, day: b.day, v: b.v, cur: b.cur })),
         models: top(mergeModels(p.models)),
         projects: top(p.projects),
@@ -514,6 +526,7 @@ function activate(context) {
       const sums = {}
       for (const date of dates) for (const [k, n] of Object.entries(days[date][pick.id])) sums[k] = (sums[k] || 0) + n
       const cols = Object.entries(sums).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k]) => k)
+      const g = groupNum
       rows = [[L.csvDate, L.csvTotal, ...cols, L.csvOther]]
       const totals = new Array(cols.length).fill(0)
       let grand = 0
@@ -522,12 +535,12 @@ function activate(context) {
         const d = days[date]
         const vals = cols.map(c => d[pick.id][c] || 0)
         const other = Math.max(0, d.total - vals.reduce((x, y) => x + y, 0))
-        rows.push([date, d.total, ...vals, other])
+        rows.push([date, g(d.total), ...vals.map(g), g(other)])
         vals.forEach((v, i) => (totals[i] += v))
         grand += d.total
         otherAll += other
       }
-      rows.push([L.csvTotal, grand, ...totals, otherAll])
+      rows.push([L.csvTotal, g(grand), ...totals.map(g), g(otherAll)])
     }
 
     const csv = '\uFEFF' + rows.map(line).join('\r\n') + '\r\n' // BOM: Excel reads UTF-8 (Cyrillic) correctly with it
@@ -687,7 +700,7 @@ function panelHtml() {
     $('plabel').textContent = data.L.total + ' · ' + data.L.tokens
     $('ptotal').textContent = fmt(p.total)
     const days = tab === 'today' ? 1 : tab === 'd7' ? 7 : 30
-    $('psub').textContent = p.total.toLocaleString(data.locale) + ' · ' + fmt(p.total / days) + ' ' + data.L.perDay + ' · ' + data.L.sessions + ': ' + data.sessionsToday
+    $('psub').textContent = p.totalText + ' · ' + fmt(p.total / days) + ' ' + data.L.perDay + ' · ' + data.L.sessions + ': ' + data.sessionsToday
     const max = Math.max(1, ...p.bars.map(b => b.v)), chart = $('chart'); chart.replaceChildren()
     p.bars.forEach((b, i) => {
       const c = el('div', 'col' + (b.cur ? ' cur' : '')), st = el('div', 'stick'), bar = el('i')
