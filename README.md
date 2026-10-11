@@ -7,6 +7,12 @@ Your Claude Code <b>5-hour</b> and <b>weekly</b> limits, tokens by <b>day, model
 alerts and a pace forecast — right in the status bar of VS Code, Antigravity and Cursor.
 </p>
 
+<p align="center">
+<a href="https://open-vsx.org/extension/andreykilanov/claude-usage-monitor"><img alt="Open VSX version" src="https://img.shields.io/open-vsx/v/andreykilanov/claude-usage-monitor?label=Open%20VSX&color=ffb547"></a>
+<a href="https://open-vsx.org/extension/andreykilanov/claude-usage-monitor"><img alt="Open VSX installs" src="https://img.shields.io/open-vsx/dt/andreykilanov/claude-usage-monitor?label=installs&color=40e0d0"></a>
+<a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-7aa2ff"></a>
+</p>
+
 <p align="center"><a href="#русская-версия">Русская версия ↓</a></p>
 
 <p align="center"><img src="assets/panel-dark.png" width="640" alt="Usage panel, dark theme"></p>
@@ -59,7 +65,7 @@ Answer `y` to add the marketplace, then pick the user scope.
 
 ### 2. The extension
 
-- **Open VSX** (Antigravity, VSCodium, Cursor…): search **Claude Usage Monitor** in the Extensions view.
+- **Open VSX** (Antigravity, VSCodium, Cursor…): search **Claude Usage Monitor** in the Extensions view, or open the [listing](https://open-vsx.org/extension/andreykilanov/claude-usage-monitor).
 - **From a file:** download `claude-usage-monitor-<version>.vsix` from [Releases](https://github.com/AndreyKilanov/claude-usage-monitor/releases), then Extensions → **⋯** → *Install from VSIX…*.
 
 ### 3. Start a new Claude session
@@ -151,7 +157,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 
    Ответьте `y`, затем выберите пользовательский уровень (user scope).
 
-2. **Расширение:** найдите **Claude Usage Monitor** в Open VSX (Antigravity, VSCodium, Cursor) или установите `.vsix` из [Releases](https://github.com/AndreyKilanov/claude-usage-monitor/releases): Extensions → **⋯** → *Install from VSIX…*.
+2. **Расширение:** найдите **Claude Usage Monitor** в Open VSX ([страница](https://open-vsx.org/extension/andreykilanov/claude-usage-monitor); Antigravity, VSCodium, Cursor) или установите `.vsix` из [Releases](https://github.com/AndreyKilanov/claude-usage-monitor/releases): Extensions → **⋯** → *Install from VSIX…*.
 
 3. **Начните новую сессию Claude** и отправьте сообщение. Цифры появятся после первого ответа; сессии, начатые до установки плагина, не учитываются.
 
