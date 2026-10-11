@@ -24,6 +24,9 @@ const STR = {
     noFiles: 'Папка есть, но в ней пока пусто. Отправьте сообщение в новой сессии Claude (плагин должен быть установлен и включён).',
     noReadable: 'Файлы в папке есть, но прочитать их не удалось: они повреждены или нет прав доступа.',
     lookingIn: 'Папка с данными:',
+    scopeAll: 'Все проекты', scopeHint: 'Только токены этого проекта; лимиты общие для аккаунта',
+    verExt: 'Расширение', verPlugin: 'плагин', verOld: 'старый (до 0.6.3)',
+    pluginOld: (v, min) => `Плагин на этом компьютере устарел (${v}, нужен не ниже ${min}). Обновите его: меню → «Установить плагин usage-monitor», затем начните новую сессию Claude.`,
     kindsTitle: 'Состав токенов',
     kindCacheRead: 'Чтение кэша', kindCacheWrite: 'Запись в кэш', kindInput: 'Новый запрос', kindOutput: 'Ответ', kindUnknown: 'Без разбивки (старые записи)',
     kindsNote: 'Большую часть составляет чтение кэша — контекст, который заново отправляется с каждым ответом. Он стоит намного дешевле нового запроса, поэтому общее число получается таким большим.',
@@ -70,6 +73,9 @@ const STR = {
     noFiles: 'The folder exists but has no session files yet. Send a message in a NEW Claude session (the plugin must be installed and enabled).',
     noReadable: 'Session files exist but could not be read (damaged, or no permission).',
     lookingIn: 'Looking for data in:',
+    scopeAll: 'All projects', scopeHint: "Only this project's tokens; limits are shared by the whole account",
+    verExt: 'Extension', verPlugin: 'plugin', verOld: 'old (before 0.6.3)',
+    pluginOld: (v, min) => `The plugin on this computer is outdated (${v}, ${min} or newer is needed). Update it: menu → "Install the usage-monitor plugin", then start a new Claude session.`,
     kindsTitle: 'What the tokens are made of',
     kindCacheRead: 'Cache reads', kindCacheWrite: 'Cache writes', kindInput: 'New input', kindOutput: 'Output', kindUnknown: 'Not split (older data)',
     kindsNote: 'Most of the total is cache reads: context re-sent with every reply. It is billed far cheaper than new input, which is why the number looks huge.',
@@ -119,6 +125,46 @@ const pickLocale = () => {
 }
 
 const num = v => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v))
+const MIN_PLUGIN = '0.6.3'
+
+// "0.10.2" > "0.9.0": compare numerically, part by part; anything unreadable counts as 0
+const cmpVer = (a, b) => {
+  const pa = String(a || '').split('.').map(n => parseInt(n, 10) || 0)
+  const pb = String(b || '').split('.').map(n => parseInt(n, 10) || 0)
+  for (let i = 0; i < Math.max(pa.length, pb.length, 3); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0)
+    if (d) return d < 0 ? -1 : 1
+  }
+  return 0
+}
+
+const extensionVersion = () => {
+  try { return String(require('./package.json').version) } catch { return '?' }
+}
+
+const folderName = p => String(p || '').split(/[\\/]/).filter(Boolean).pop() || null
+
+// The project a session belongs to: what the plugin wrote, or, for older files, the folder with most of its tokens.
+function fileProject(d) {
+  if (typeof d.project === 'string' && d.project) return d.project
+  const sums = {}
+  for (const h of Object.values(d.detail && typeof d.detail === 'object' ? d.detail : {})) {
+    for (const [name, n] of Object.entries((h && h.p) || {})) if (Number(n) > 0) sums[name] = (sums[name] || 0) + Number(n)
+  }
+  const best = Object.entries(sums).sort((a, b) => b[1] - a[1])[0]
+  return best ? best[0] : null
+}
+// The project of the editor window: the name of its first workspace folder.
+const workspaceProject = () => {
+  try {
+    const f = vscode.workspace.workspaceFolders
+    return f && f.length ? folderName(f[0].uri.fsPath) : null
+  } catch {
+    return null
+  }
+}
+const sameProject = (a, b) => !!a && !!b && String(a).toLowerCase() === String(b).toLowerCase()
+
 // Excel in a Russian locale expects ';', most other tools ','
 const csvDelimiter = () => {
   const v = cfg('csvDelimiter', 'auto')
@@ -313,7 +359,7 @@ const top = (map, n = 6) => {
 }
 
 // Tokens for every session on every device: today (by hour), 7 and 30 days (by day), and breakdowns.
-function readTotals(list, localId) {
+function readTotals(list, localId, project = null) {
   const now = Date.now()
   const midnight = dayStart(now, 0)
   const mk = n => ({ bars: [], total: 0, models: {}, projects: {}, kinds: { i: 0, o: 0, w: 0, r: 0 } })
@@ -326,6 +372,7 @@ function readTotals(list, localId) {
   periods.d7.bars = dayBars(7)
   periods.d30.bars = dayBars(30)
   const raw = []
+  let newestAny = null // the freshest local file of all, even a brand-new empty one: which plugin wrote it?
   let newestLocal = null // the freshest local session that has spent tokens: does it record the split?
   let sessionsToday = 0
   const devices = new Set()
@@ -335,10 +382,12 @@ function readTotals(list, localId) {
       if (full.startsWith(SESS)) { try { fs.unlinkSync(full) } catch {} }
       continue
     }
+    if (machine === localId && (!newestAny || (num(d.updatedAt) || 0) > newestAny.t)) newestAny = { t: num(d.updatedAt) || 0, v: typeof d.v === 'string' ? d.v : null }
     if (machine === localId && d.buckets && typeof d.buckets === 'object' && Object.keys(d.buckets).length && (!newestLocal || (num(d.updatedAt) || 0) > newestLocal.t)) {
       const det = d.detail && typeof d.detail === 'object' ? Object.values(d.detail) : []
       newestLocal = { t: num(d.updatedAt) || 0, hasKinds: det.some(h => h && h.k && typeof h.k === 'object') }
     }
+    if (project && !sameProject(fileProject(d), project)) continue // 'only this project': other projects' sessions stay out of the numbers
     let hitToday = false
     for (const [k, v0] of Object.entries(d.buckets && typeof d.buckets === 'object' ? d.buckets : {})) {
       const t = Number(k)
@@ -366,7 +415,7 @@ function readTotals(list, localId) {
     }
     if (hitToday) sessionsToday++
   }
-  return { periods, sessionsToday, devices: devices.size, raw, pluginOutdated: !!(newestLocal && !newestLocal.hasKinds) }
+  return { periods, sessionsToday, devices: devices.size, raw, pluginOutdated: !!(newestLocal && !newestLocal.hasKinds), pluginVersion: newestAny ? newestAny.v : undefined }
 }
 
 // Time until the 5-hour window hits 100% at the pace of the last hour; null when there is no honest answer.
@@ -500,6 +549,8 @@ function activate(context) {
     const all = scan(machineId)
     const u = readLimits(all)
     const t = readTotals(all, machineId)
+    const project = workspaceProject()
+    const tp = project ? readTotals(all, machineId, project) : null
     if (!u) {
       item.text = `$(pulse) ${L.noData}`
       item.tooltip = new vscode.MarkdownString(noDataHelp(), false)
@@ -517,7 +568,7 @@ function activate(context) {
     }
     alerts(u)
     const eta = forecast(history, u)
-    last = { u, t, eta }
+    last = { u, t, tp, project, eta }
     const today = t.periods.today
 
     const worst = Math.max(...windows(u).filter(w => w.kind === 'five_hour' || w.kind === 'seven_day').map(w => w.p), 0)
@@ -546,14 +597,24 @@ function activate(context) {
     lines.push('---')
     lines.push(`${L.todayLine}: **${groupNum(today.total)}** ${L.tokens} · ${L.sessions}: ${t.sessionsToday}`)
     lines.push(u.usd != null ? `${L.curSession}: ${tok(u.tokens)} ${L.tokens} · $${Number(u.usd).toFixed(2)}` : `${L.curSession}: ${tok(u.tokens)} ${L.tokens}`)
+    const vi = versionInfo(t)
+    lines.push(`_${L.verExt} ${vi.ext} · ${L.verPlugin} ${vi.plugin || (vi.old ? L.verOld : '—')}_`)
     item.tooltip = new vscode.MarkdownString(lines.join('\n\n'), true)
     item.show()
     pushPanel()
   }
 
+  // Which versions are running here, and whether the plugin on this computer is too old for this extension.
+  const versionInfo = t => {
+    const known = t.pluginVersion !== undefined // false: there is no local data file at all
+    const plugin = known ? t.pluginVersion : null
+    const old = known && (plugin === null || cmpVer(plugin, MIN_PLUGIN) < 0)
+    return { ext: extensionVersion(), plugin, min: MIN_PLUGIN, old, oldText: old ? L.pluginOld(plugin || L.verOld, MIN_PLUGIN) : '' }
+  }
+
   const payload = () => {
-    const { u, t, eta } = last
-    const per = key => {
+    const { u, t, tp, project, eta } = last
+    const per = (t, key) => {
       const p = t.periods[key]
       return {
         total: p.total,
@@ -569,6 +630,7 @@ function activate(context) {
         title: L.title, updated: L.updated, resetsCap: L.resetsCap, noReset: L.noReset, forecast: L.forecast, note: L.note,
         tabToday: L.tabToday, tab7: L.tab7, tab30: L.tab30, byModel: L.byModel, byProject: L.byProject, noBreakdown: L.noBreakdown,
         kindsTitle: L.kindsTitle, kindCacheRead: L.kindCacheRead, kindCacheWrite: L.kindCacheWrite, kindInput: L.kindInput, kindOutput: L.kindOutput, kindUnknown: L.kindUnknown, kindsNote: L.kindsNote, kindsOutdated: L.kindsOutdated,
+        scopeAll: L.scopeAll, scopeHint: L.scopeHint, verExt: L.verExt, verPlugin: L.verPlugin, verOld: L.verOld,
         tokens: L.tokens, sessions: L.sessions, devices: L.devices, curSession: L.curSession, exportCsv: L.exportCsv, total: L.total, perDay: L.perDay,
       },
       locale: L.locale,
@@ -577,8 +639,12 @@ function activate(context) {
       critAt: cfg('critAt', 90),
       windows: windows(u).map(w => ({ name: nameOf(w.kind), p: w.p, reset: left(w.resetsAt) })),
       eta: eta ? fmtMs(eta) : null,
-      periods: { today: per('today'), d7: per('d7'), d30: per('d30') },
-      sessionsToday: t.sessionsToday,
+      scopes: {
+        all: { today: per(t, 'today'), d7: per(t, 'd7'), d30: per(t, 'd30'), sessionsToday: t.sessionsToday },
+        project: tp ? { today: per(tp, 'today'), d7: per(tp, 'd7'), d30: per(tp, 'd30'), sessionsToday: tp.sessionsToday } : null,
+      },
+      projectName: project,
+      versions: versionInfo(t),
       pluginOutdated: t.pluginOutdated,
       devicesCount: t.devices,
       session: { tokens: u.tokens || 0, usd: u.usd ?? null },
@@ -796,7 +862,8 @@ function panelHtml() {
           --muted: var(--vscode-descriptionForeground, #9aa); }
   * { box-sizing: border-box; }
   body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 0 24px 32px; max-width: 720px; margin: 0 auto; }
-  .hero { margin: 0 -24px 22px; padding: 22px 24px 18px; background: linear-gradient(135deg, rgba(255,181,71,.16), rgba(64,224,208,.10) 60%, transparent); border-bottom: 1px solid var(--line); }
+  .hero { position: relative; margin: 0 -24px 22px; padding: 22px 24px 18px; background: linear-gradient(135deg, rgba(255,181,71,.16), rgba(64,224,208,.10) 60%, transparent); border-bottom: 1px solid var(--line); }
+  .ver { position: absolute; top: 10px; right: 24px; font-size: 10px; letter-spacing: .03em; color: var(--muted); opacity: .75; font-variant-numeric: tabular-nums; cursor: default; }
   .hero h1 { font-size: 20px; font-weight: 650; margin: 0 0 2px; letter-spacing: -.01em; }
   .muted { color: var(--muted); font-size: 12px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 14px; }
@@ -833,16 +900,20 @@ function panelHtml() {
   .leg { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 5px 0; }
   .leg b { width: 10px; height: 10px; border-radius: 3px; flex: none; }
   .leg span:nth-child(2) { flex: 1; } .leg span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 14px; }
+  .controls .tabs { margin-bottom: 0; }
+  .cols2.one { grid-template-columns: 1fr; }
   .warnbox { margin-top: 10px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--warn); background: rgba(210,153,34,.08); font-size: 12px; }
   .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; gap: 10px; flex-wrap: wrap; }
   .btn { border: 1px solid var(--line); background: var(--card); color: inherit; padding: 6px 12px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 12px; }
   .btn:hover { border-color: var(--accent); }
   .hidden { display: none; }
 </style></head><body>
-  <div class="hero"><h1 id="title"></h1><div class="muted" id="updated"></div></div>
+  <div class="hero"><h1 id="title"></h1><div class="muted" id="updated"></div><div class="ver" id="ver"></div></div>
+  <div class="warnbox hidden" id="pbanner" style="margin:0 0 14px"></div>
   <div class="grid" id="rings"></div>
   <div class="forecast hidden" id="forecast"></div>
-  <div class="tabs" id="tabs"></div>
+  <div class="controls"><div class="tabs" id="tabs"></div><div class="tabs" id="scope"></div></div>
   <div class="card">
     <div class="head"><span class="label" id="plabel"></span><span class="big" id="ptotal"></span></div>
     <div class="sub" id="psub"></div>
@@ -855,9 +926,9 @@ function panelHtml() {
     <div class="sub" id="knote"></div>
     <div class="warnbox hidden" id="koutdated"></div>
   </div>
-  <div class="cols2">
+  <div class="cols2" id="cols2">
     <div class="card"><div class="label" id="mlabel"></div><div id="models"></div></div>
-    <div class="card"><div class="label" id="plabel2"></div><div id="projects"></div></div>
+    <div class="card" id="pcard"><div class="label" id="plabel2"></div><div id="projects"></div></div>
   </div>
   <div class="actions"><span class="muted" id="note"></span><button class="btn" id="csv"></button></div>
 <script nonce="${nonce}">
@@ -866,6 +937,7 @@ function panelHtml() {
   const PALETTE = ['#ffb547', '#40e0d0', '#7aa2ff', '#ff6363', '#c792ea', '#8bd17c', '#f78fb3']
   let data = null
   let tab = (vscode.getState() || {}).tab || 'today'
+  let scope = (vscode.getState() || {}).scope || 'all'
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e }
   const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(Math.round(n || 0))
   const level = p => p >= data.critAt ? 'crit' : p >= data.warnAt ? 'warn' : 'ok'
@@ -912,8 +984,9 @@ function panelHtml() {
       row.append(dot, el('span', '', name), el('span', '', fmt(k[key]) + ' · ' + Math.round(k[key] / total * 100) + '%')); legend.appendChild(row)
     }
     $('knote').textContent = k.cacheRead / total >= 0.5 ? data.L.kindsNote : ''
-    $('koutdated').classList.toggle('hidden', !data.pluginOutdated)
-    $('koutdated').textContent = data.pluginOutdated ? data.L.kindsOutdated : ''
+    const showKindsWarn = data.pluginOutdated && !(data.versions && data.versions.old)
+    $('koutdated').classList.toggle('hidden', !showKindsWarn)
+    $('koutdated').textContent = showKindsWarn ? data.L.kindsOutdated : ''
   }
 
   function draw() {
@@ -926,14 +999,25 @@ function panelHtml() {
     const tabs = $('tabs'); tabs.replaceChildren()
     for (const [k, label] of [['today', data.L.tabToday], ['d7', data.L.tab7], ['d30', data.L.tab30]]) {
       const b = el('button', 'tab' + (k === tab ? ' on' : ''), label)
-      b.onclick = () => { tab = k; vscode.setState({ tab }); draw() }
+      b.onclick = () => { tab = k; vscode.setState({ tab, scope }); draw() }
       tabs.appendChild(b)
     }
-    const p = data.periods[tab]
+    const scopeBox = $('scope'); scopeBox.replaceChildren()
+    if (!data.projectName || !data.scopes.project) scope = 'all'
+    if (data.projectName && data.scopes.project) {
+      for (const [k, label] of [['all', data.L.scopeAll], ['project', '📁 ' + data.projectName]]) {
+        const b = el('button', 'tab' + (k === scope ? ' on' : ''), label)
+        if (k === 'project') b.title = data.L.scopeHint
+        b.onclick = () => { scope = k; vscode.setState({ tab, scope }); draw() }
+        scopeBox.appendChild(b)
+      }
+    }
+    const S = data.scopes[scope] || data.scopes.all
+    const p = S[tab]
     $('plabel').textContent = data.L.total + ' · ' + data.L.tokens
     $('ptotal').textContent = fmt(p.total)
     const days = tab === 'today' ? 1 : tab === 'd7' ? 7 : 30
-    $('psub').textContent = p.totalText + ' · ' + fmt(p.total / days) + ' ' + data.L.perDay + ' · ' + data.L.sessions + ': ' + data.sessionsToday
+    $('psub').textContent = p.totalText + ' · ' + fmt(p.total / days) + ' ' + data.L.perDay + ' · ' + data.L.sessions + ': ' + S.sessionsToday
     const max = Math.max(1, ...p.bars.map(b => b.v)), chart = $('chart'); chart.replaceChildren()
     p.bars.forEach((b, i) => {
       const c = el('div', 'col' + (b.cur ? ' cur' : '')), st = el('div', 'stick'), bar = el('i')
@@ -946,6 +1030,13 @@ function panelHtml() {
       chart.appendChild(c)
     })
     drawKinds(p)
+    $('pcard').classList.toggle('hidden', scope === 'project') // one project's own split by project would just say 100%
+    $('cols2').classList.toggle('one', scope === 'project')
+    const v = data.versions
+    $('pbanner').classList.toggle('hidden', !v.old)
+    $('pbanner').textContent = v.old ? v.oldText : ''
+    $('ver').textContent = 'v' + v.ext // small, top right; hovering names both versions
+    $('ver').title = data.L.verExt + ' ' + v.ext + ' · ' + data.L.verPlugin + ' ' + (v.plugin || (v.old ? data.L.verOld : '—'))
     $('mlabel').textContent = data.L.byModel; $('plabel2').textContent = data.L.byProject
     rows($('models'), p.models, p.total); rows($('projects'), p.projects, p.total)
     $('note').textContent = data.L.note
@@ -960,4 +1051,4 @@ function panelHtml() {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, __test: { STR, findClaudeBinaries, noDataHelp, prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }
+module.exports = { activate, deactivate, __test: { cmpVer, fileProject, folderName, STR, findClaudeBinaries, noDataHelp, prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }

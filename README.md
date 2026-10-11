@@ -27,7 +27,7 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 | **Status bar** | `5h 38% · wk 5% · today 1.2M`; turns yellow / red at 80% / 90% (configurable) |
 | **Hover** | progress bars, time to reset, Sonnet / Opus weekly windows when your plan has them |
 | **Menu** (click) | panel, copy a one-line summary, export CSV, refresh, settings, install / update the plugin, help |
-| **Panel** | ring gauges, 24-hour / 7-day / 30-day charts, **what the tokens are made of** (cache reads / writes, new input, output), breakdown by model and by project |
+| **Panel** | an *All projects / this project* switch, ring gauges, 24-hour / 7-day / 30-day charts, **what the tokens are made of** (cache reads / writes, new input, output), breakdown by model and by project |
 | **Alerts** | a notification when a limit crosses the warning / critical percent, and when it resets |
 | **Forecast** | "at this pace the 5-hour limit runs out in 23 min" — only when it would happen before the reset |
 | **All sessions** | every window and session on the machine is added up, so "today" is the real total |
@@ -146,7 +146,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 | **Строка состояния** | `5ч 38% · нед 5% · сегодня 1.2M`. При 80% становится жёлтой, при 90% красной (пороги настраиваются) |
 | **Подсказка** | шкалы лимитов, время до сброса, недельные лимиты Sonnet и Opus, если они есть в вашем тарифе |
 | **Меню** (по клику) | панель, копирование краткой сводки, экспорт в CSV, обновление, настройки, установка и обновление плагина, справка |
-| **Панель** | кольца лимитов, графики за сутки, 7 и 30 дней, **состав токенов** (чтение и запись кэша, новый запрос, ответ), расход по моделям и по проектам |
+| **Панель** | переключатель «Все проекты / этот проект», кольца лимитов, графики за сутки, 7 и 30 дней, **состав токенов** (чтение и запись кэша, новый запрос, ответ), расход по моделям и по проектам |
 | **Оповещения** | уведомление, когда лимит достигает порога, и когда он сбрасывается |
 | **Прогноз** | «при таком темпе 5-часовой лимит закончится через 23 мин». Показывается, только если лимит кончится раньше сброса |
 | **Все сессии** | токены из всех окон и сессий на компьютере складываются, так что «сегодня» — это настоящий итог за день |

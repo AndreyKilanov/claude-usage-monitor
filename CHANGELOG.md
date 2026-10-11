@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.3
+
+- **"Only this project" switch** in the panel: *All projects* / *📁 the open folder*. It narrows tokens, charts, the token split and models to the sessions of the project open in this editor window (matched by folder name, case-insensitive; older data falls back to the folder with most of the session's tokens). Limits stay account-wide, and the status bar keeps counting every project.
+- **Version in the panel**, small, in the top right corner (`v0.6.3`). Hover it for the extension and plugin versions. There is no update check: the extension still makes no network requests.
+- **Outdated-plugin banner.** The plugin now writes its own version into every data file; if the plugin on this computer is older than 0.6.3 or reports no version, the panel says so and points to *menu → Install the usage-monitor plugin*. The tooltip shows both versions too.
+- The plugin also records the project folder name of each session.
+- Tests: 18 plugin tests, 50 extension tests.
+
+**Update the plugin on every machine** (menu → *Install the usage-monitor plugin*), then start a new Claude session.
+
 ## 0.6.2
 
 - **Install / update fixed.** The install command now refreshes the catalogue's version list (`plugin marketplace update`) before `plugin update`; without it an already-installed old plugin could be reported as "up to date" and never pick up 0.6.

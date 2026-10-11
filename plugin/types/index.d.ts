@@ -1,4 +1,8 @@
 export type Usage = {
+  /** the plugin's version, written into the data file so the extension can spot an outdated plugin */
+  v?: string | null
+  /** folder name of the session's working directory, written into the data file */
+  project?: string | null
   /** id of the session these counters belong to */
   sid: string | null
   fiveHour: number | null

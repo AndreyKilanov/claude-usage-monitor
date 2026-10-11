@@ -80,6 +80,28 @@ const diag = async ($: any, kind: 'loaded' | 'error', detail: string) => {
   }
 }
 
+// The plugin's own version, read once from its manifest, so the editor extension can tell an old plugin from a current one.
+let versionCache: string | null | undefined
+const pluginVersion = async ($: any): Promise<string | null> => {
+  if (versionCache !== undefined) return versionCache
+  try {
+    const manifest = JSON.parse(await $.fs.read(joinPath($.plugin.root, '.claude-plugin', 'plugin.json')))
+    versionCache = typeof manifest.version === 'string' ? manifest.version : null
+  } catch {
+    versionCache = null
+  }
+  return versionCache
+}
+
+// The folder name of the session's working directory: the project this session belongs to.
+const projectName = async ($: any): Promise<string | null> => {
+  try {
+    return (await $.session.cwd()).split(/[\\/]/).filter(Boolean).pop() || null
+  } catch {
+    return null
+  }
+}
+
 const maxMerge = (a: Record<string, number>, b: Record<string, number>) => {
   const out = { ...a }
   for (const [k, v] of Object.entries(b)) out[k] = Math.max(out[k] ?? 0, Number(v) || 0)
@@ -148,7 +170,7 @@ const persist = async ($: any) => {
     // one file per session: a single writer each, so two windows can never tear each other's data
     const target = dataFile(home, sid)
     try {
-      await $.fs.write(target, JSON.stringify({ ...u, updatedAt: now }))
+      await $.fs.write(target, JSON.stringify({ ...u, v: await pluginVersion($), project: await projectName($), updatedAt: now }))
     } catch (err) {
       await diag($, 'error', `could not write ${target}\n${String(err)}`)
     }
@@ -177,12 +199,7 @@ export const register: Register = on => {
       const now = await $.clock.now()
       const hour = String(Math.floor(now / HOUR) * HOUR)
       const model = u.model || 'unknown'
-      let project = 'unknown'
-      try {
-        project = (await $.session.cwd()).split(/[\\/]/).filter(Boolean).pop() || 'unknown'
-      } catch {
-        // no cwd: keep "unknown"
-      }
+      const project = (await projectName($)) ?? 'unknown'
       await update($, usage, cur => {
         const buckets: Record<string, number> = {}
         const detail: Usage['detail'] = {}

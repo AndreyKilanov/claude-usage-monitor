@@ -18,12 +18,12 @@ function setup({ lang = 'en', config = {}, store = {} } = {}) {
   process.env.HOME = home
   const sessDir = path.join(home, '.claude', 'usage-monitor')
   fs.mkdirSync(sessDir, { recursive: true })
-  const log = { warn: [], error: [], info: [], panels: [], posted: [], saved: null, calls: [], offered: [], executed: [], clip: null, opened: null, confirm: undefined, errorChoice: undefined, openPick: undefined, plan: () => ({}), extensions: [] }
+  const log = { warn: [], error: [], info: [], panels: [], posted: [], saved: null, calls: [], folders: undefined, offered: [], executed: [], clip: null, opened: null, confirm: undefined, errorChoice: undefined, openPick: undefined, plan: () => ({}), extensions: [] }
   const items = []
   const cmds = {}
   const vs = {
     env: { language: lang, clipboard: { writeText: async v => { log.clip = v } }, openExternal: async u => { log.opened = u.value } },
-    workspace: { getConfiguration: () => ({ get: (k, d) => (k in config ? config[k] : d) }), onDidChangeConfiguration: () => ({ dispose() {} }) },
+    workspace: { get workspaceFolders() { return log.folders }, getConfiguration: () => ({ get: (k, d) => (k in config ? config[k] : d) }), onDidChangeConfiguration: () => ({ dispose() {} }) },
     window: {
       createStatusBarItem: () => { const i = { show() {}, dispose() {} }; items.push(i); return i },
       createWebviewPanel: () => {
@@ -289,7 +289,7 @@ test('breakdown: several dated ids of one model merge; the long tail folds into 
   t.cmds['claudeUsage.open']()
   t.refresh()
   const data = t.log.posted.at(-1).data
-  const week = data.periods.d30
+  const week = data.scopes.all.d30
   assert.equal(week.models.length, 1)
   assert.equal(week.models[0].name, 'Opus 5.5')
   assert.equal(week.projects.length, 7)
@@ -420,7 +420,7 @@ test('a project name with markup cannot reach the page as HTML', () => {
   t.refresh()
   const html = t.log.panels[0].html
   assert.ok(!html.includes(evil), 'the shell never contains data')
-  assert.equal(t.log.posted.at(-1).data.periods.today.projects[0].name, evil) // data travels as data, drawn with textContent
+  assert.equal(t.log.posted.at(-1).data.scopes.all.today.projects[0].name, evil) // data travels as data, drawn with textContent
   t.stop()
 })
 
@@ -655,10 +655,10 @@ test('token kinds: shares add up, cache reads dominate, old data without a split
   t.start()
   t.cmds['claudeUsage.open']()
   t.refresh()
-  const k = t.log.posted.at(-1).data.periods.today.kinds
+  const k = t.log.posted.at(-1).data.scopes.all.today.kinds
   assert.deepEqual(k, { cacheRead: 700, cacheWrite: 100, input: 50, output: 150, unknown: 400 })
   assert.equal(k.cacheRead + k.cacheWrite + k.input + k.output + k.unknown, 1400)
-  assert.equal(t.log.posted.at(-1).data.periods.today.total, 1400)
+  assert.equal(t.log.posted.at(-1).data.scopes.all.today.total, 1400)
   const html = t.log.panels[0].html
   for (const id of ['kcard', 'stack', 'legend', 'knote']) assert.ok(html.includes(`id="${id}"`), id)
 })
@@ -670,7 +670,7 @@ test('token kinds: hostile or broken values cannot produce negative or NaN share
   t.start()
   t.cmds['claudeUsage.open']()
   t.refresh()
-  const k = t.log.posted.at(-1).data.periods.today.kinds
+  const k = t.log.posted.at(-1).data.scopes.all.today.kinds
   assert.deepEqual(k, { cacheRead: 40, cacheWrite: 0, input: 0, output: 0, unknown: 60 })
 })
 
@@ -760,4 +760,172 @@ test('outdated plugin: an empty new session, another machine, or no data at all 
   none.write('x.json', session({ buckets: {} }))
   none.start()
   assert.equal(outdated(none), false)
+})
+
+// ---- "only this project" and versions ----
+const folder = p => ({ uri: { fsPath: p } })
+const payloadOf = t => { t.cmds['claudeUsage.open'](); t.refresh(); return t.log.posted.at(-1).data }
+const day = (project, tokens, extra = {}) => {
+  const h = hourNow()
+  return session({
+    project,
+    buckets: { [h]: tokens },
+    detail: { [h]: { m: { [`model-of-${project}`]: tokens }, p: { [project]: tokens }, k: { i: 0, o: 0, w: 0, r: tokens } } },
+    ...extra,
+  })
+}
+
+test('only this project: the window\'s project is picked from the editor and only its sessions are counted', () => {
+  const t = setup()
+  t.log.folders = [folder('/work/web-app')]
+  t.write('a.json', day('web-app', 1000))
+  t.write('b.json', day('web-app', 500))
+  t.write('c.json', day('api', 7000))
+  t.start()
+  const data = payloadOf(t)
+  assert.equal(data.projectName, 'web-app')
+  assert.equal(data.scopes.all.today.total, 8500)
+  assert.equal(data.scopes.project.today.total, 1500)
+  assert.deepEqual(data.scopes.project.today.models.map(m => m.name), ['Model of web app'], 'models follow the project too')
+  assert.deepEqual(data.scopes.project.today.projects.map(p => p.name), ['web-app'])
+  assert.equal(data.scopes.project.today.kinds.cacheRead, 1500, 'the token split follows the project too')
+  assert.equal(data.scopes.project.sessionsToday, 2)
+  assert.equal(data.scopes.all.sessionsToday, 3)
+  const html = t.log.panels[0].html
+  for (const id of ['scope', 'pbanner', 'ver', 'pcard', 'cols2']) assert.ok(html.includes(`id="${id}"`), id)
+})
+
+test('only this project: the status bar and the limits do not change with it', () => {
+  const t = setup({ config: { numberGrouping: 'none' } })
+  t.log.folders = [folder('/work/web-app')]
+  t.write('a.json', day('web-app', 1000, { fiveHour: 61 }))
+  t.write('c.json', day('api', 7000, { fiveHour: 61 }))
+  t.start()
+  assert.match(t.text(), /today 8\.0k/, 'the status bar always counts every project')
+  const data = payloadOf(t)
+  assert.equal(data.windows[0].p, 61, 'limits belong to the account')
+})
+
+test('only this project: older files without a project field fall back to the folder with most tokens; matching ignores case and Windows paths', () => {
+  const { fileProject, folderName } = setup().ext.__test
+  const h = hourNow()
+  assert.equal(fileProject({ project: 'x', detail: { [h]: { p: { y: 9 } } } }), 'x', 'what the plugin wrote wins')
+  assert.equal(fileProject({ detail: { [h]: { p: { a: 5, b: 50 } }, [h - H]: { p: { a: 70 } } } }), 'a')
+  assert.equal(fileProject({}), null)
+  assert.equal(fileProject({ detail: 'broken' }), null)
+  assert.equal(folderName('C:\\Users\\Andy\\Web-App\\'), 'Web-App')
+  assert.equal(folderName('/'), null)
+
+  const t = setup()
+  t.log.folders = [folder('C:\\Users\\Andy\\WEB-APP')]
+  const old = session({ buckets: { [h]: 300 }, detail: { [h]: { m: { m: 300 }, p: { 'web-app': 300 } } } }) // no project field
+  t.write('old.json', old)
+  t.write('new.json', day('Web-App', 100))
+  t.write('other.json', day('api', 9000))
+  t.start()
+  const data = payloadOf(t)
+  assert.equal(data.projectName, 'WEB-APP')
+  assert.equal(data.scopes.project.today.total, 400, 'both spellings of the same folder match')
+})
+
+test('only this project: other devices count when their project matches; no folder open means no switch', () => {
+  const sync = fs.mkdtempSync(path.join(os.tmpdir(), 'cum-sync-'))
+  const t = setup({ config: { syncFolder: sync } })
+  t.log.folders = [folder('/work/web-app')]
+  t.write('mine.json', day('web-app', 100))
+  t.write('theirs.json', day('web-app', 40), path.join(sync, 'laptop'))
+  t.write('theirs2.json', day('api', 999), path.join(sync, 'laptop'))
+  t.start()
+  assert.equal(payloadOf(t).scopes.project.today.total, 140)
+
+  const none = setup()
+  none.write('a.json', day('web-app', 100))
+  none.start()
+  const data = payloadOf(none)
+  assert.equal(data.projectName, null)
+  assert.equal(data.scopes.project, null)
+})
+
+test('versions: current, missing, old, two-digit parts, newest file decides, no data means no alarm', () => {
+  const { cmpVer } = setup().ext.__test
+  assert.equal(cmpVer('0.6.3', '0.6.3'), 0)
+  assert.equal(cmpVer('0.10.0', '0.9.9'), 1, 'numeric, not alphabetical')
+  assert.equal(cmpVer('0.6.2', '0.6.3'), -1)
+  assert.equal(cmpVer('1.0', '1.0.0'), 0)
+  assert.equal(cmpVer(null, '0.6.3'), -1)
+  assert.equal(cmpVer('garbage', '0.0.0'), 0)
+
+  const ver = (v, extra = {}) => { const t = setup(); t.write('a.json', day('p', 10, { v, ...extra })); t.start(); return payloadOf(t).versions }
+  assert.equal(ver('0.6.3').old, false)
+  assert.equal(ver('0.12.1').old, false)
+  assert.equal(ver('0.6.2').old, true)
+  const missing = ver(undefined)
+  assert.equal(missing.old, true)
+  assert.match(missing.oldText, /outdated/)
+  assert.equal(missing.plugin, null)
+
+  const mixed = setup()
+  mixed.write('old.json', day('p', 10, { v: '0.5.0', updatedAt: Date.now() - 9000 }))
+  mixed.write('new.json', day('p', 10, { v: '0.6.3', updatedAt: Date.now() }))
+  mixed.start()
+  assert.equal(payloadOf(mixed).versions.old, false, 'after an update, the freshest file says what runs now')
+
+  // nothing of this computer's own on disk (only another device's data): there is nothing local to be old
+  const sync = fs.mkdtempSync(path.join(os.tmpdir(), 'cum-sync-'))
+  const onlyRemote = setup({ config: { syncFolder: sync } })
+  onlyRemote.write('theirs.json', day('p', 10), path.join(sync, 'other-pc'))
+  onlyRemote.start()
+  const rv = payloadOf(onlyRemote).versions
+  assert.equal(rv.old, false)
+  assert.equal(rv.plugin, null)
+})
+
+test('versions: shown in the panel data and the tooltip, in both languages, and the extension reports its own', () => {
+  const ownVersion = require('../package.json').version
+  const t = setup()
+  t.write('a.json', day('p', 10, { v: '0.6.3' }))
+  t.start()
+  const v = payloadOf(t).versions
+  assert.equal(v.ext, ownVersion)
+  assert.equal(v.plugin, '0.6.3')
+  assert.ok(t.tooltip().includes(`Extension ${ownVersion} · plugin 0.6.3`), t.tooltip())
+
+  const ru = setup({ lang: 'ru' })
+  ru.write('a.json', day('p', 10)) // no version: an old plugin
+  ru.start()
+  assert.ok(ru.tooltip().includes(`Расширение ${ownVersion} · плагин старый (до 0.6.3)`), ru.tooltip())
+  assert.match(payloadOf(ru).versions.oldText, /Плагин на этом компьютере устарел/)
+})
+
+test('versions: the old-plugin banner replaces the token-split warning instead of doubling it; a remote old plugin is not this computer\'s problem', () => {
+  const t = setup()
+  t.write('a.json', session({ buckets: { [hourNow()]: 10 }, detail: { [hourNow()]: { m: { m: 10 }, p: { p: 10 } } } })) // no v, no split
+  t.start()
+  const data = payloadOf(t)
+  assert.equal(data.versions.old, true)
+  assert.equal(data.pluginOutdated, true)
+  assert.match(t.log.panels[0].html, /showKindsWarn/, 'the page hides the second warning when the banner is up')
+
+  const sync = fs.mkdtempSync(path.join(os.tmpdir(), 'cum-sync-'))
+  const remote = setup({ config: { syncFolder: sync } })
+  remote.write('mine.json', day('p', 10, { v: '0.6.3' }))
+  remote.write('theirs.json', day('p', 10), path.join(sync, 'other-pc')) // old plugin over there
+  remote.start()
+  assert.equal(payloadOf(remote).versions.old, false)
+})
+
+test('the version sits small in the top right of the panel: plain "v<number>", both versions on hover, no network involved', () => {
+  const t = setup()
+  t.write('a.json', day('p', 10, { v: '0.6.3' }))
+  t.start()
+  const html = t.log.panels.length ? t.log.panels[0].html : (t.cmds['claudeUsage.open'](), t.log.panels[0].html)
+  assert.match(html, /<div class="ver" id="ver"><\/div>/)
+  assert.match(html, /\.ver \{ position: absolute; top: 10px; right: 24px; font-size: 10px/)
+  assert.match(html, /\$\('ver'\)\.textContent = 'v' \+ v\.ext/)
+  assert.ok(!html.includes('id="versions"'), 'the old footer line is gone')
+  assert.ok(!/https?:\/\//.test(html.replace(/<\/?\w[^>]*>/g, '')), 'the page itself makes no requests')
+  // the extension never loads a network module
+  const src = fs.readFileSync(path.join(__dirname, '..', 'extension.js'), 'utf8')
+  assert.ok(!/require\(['"](https?|net|dgram|tls|http2)['"]\)/.test(src), 'no network modules anywhere in the extension')
+  assert.ok(!/\bfetch\(|XMLHttpRequest|WebSocket/.test(src.replace(/\/\/.*$/gm, '')), 'no fetch-style calls')
 })

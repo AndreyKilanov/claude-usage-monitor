@@ -21,6 +21,8 @@ const world = (on: any, sid: { v: string }, files: Map<string, string>) => {
     return { value: undefined }
   })
   on('fs.read', (_$: any, e: any) => {
+    // the plugin's manifest sits wherever the engine put the plugin: serve it from the 'MANIFEST' entry
+    if (e.path.endsWith('.claude-plugin/plugin.json') && files.has('MANIFEST')) return { value: files.get('MANIFEST') }
     if (!files.has(e.path)) throw new Error('ENOENT')
     return { value: files.get(e.path) }
   })
@@ -216,4 +218,33 @@ test('kinds survive odd numbers and a resumed session', async ($, on) => {
   const f = fileOf(files, 's1')
   expect(f.detail[hour].k).toEqual({ i: 100, o: 100, w: 107, r: 203 })
   expect(f.buckets[hour]).toBe(510)
+})
+
+test('the plugin writes its own version, read from its manifest, and the project folder, into every data file', async ($, on) => {
+  const files = new Map<string, string>()
+  world(on, { v: 's1' }, files)
+  files.set('MANIFEST', JSON.stringify({ name: 'usage-monitor', version: '9.8.7' }))
+  await complete($, usageOf('m', 10))
+  const f = fileOf(files, 's1')
+  expect(f.v).toBe('9.8.7')
+  expect(f.project).toBe('my-project')
+})
+
+test('an unreadable manifest gives a null version, never a failure; a Windows cwd still gives the folder name', async ($, on) => {
+  const files = new Map<string, string>()
+  mock.clock(on, { now: NOW })
+  mock.env(on, { HOME: '/home/u' })
+  on('session.id', () => ({ value: 's1' }))
+  on('session.cwd', () => ({ value: 'C:\\work\\client app' }))
+  on('fs.write', (_$: any, e: any) => {
+    files.set(e.path, e.text)
+    return { value: undefined }
+  })
+  on('fs.read', () => { throw new Error('ENOENT') })
+  on('turn.complete', () => ({ text: '' }))
+  await complete($, usageOf('m', 10))
+  const f = fileOf(files, 's1')
+  expect(f.v).toBe(null)
+  expect(f.project).toBe('client app')
+  expect(f.tokens).toBe(10)
 })
