@@ -7,10 +7,10 @@ Your Claude Code <b>5-hour</b> and <b>weekly</b> limits, tokens by <b>day, model
 alerts and a pace forecast — right in the status bar of VS Code, Antigravity and Cursor.
 </p>
 
-<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/statusbar-7a7be200.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/statusbar-bbf6ca0f.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
 <p align="center"><sub>The status bar item and its hover tooltip.</sub></p>
 
-<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/panel-dark-7332ae68.png" width="640" alt="Usage panel, dark theme"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/panel-dark-0123ff96.png" width="640" alt="Usage panel, dark theme"></p>
 <p align="center"><sub>The panel follows your editor theme. Mock-ups drawn from the extension's own output with sample data.</sub></p>
 
 > **Unofficial.** Not affiliated with or endorsed by Anthropic. "Claude" is a trademark of its owner; it is used here only to say what the tool works with.
@@ -29,7 +29,7 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 | **CSV export** | `date, dimension, name, tokens` for spreadsheets |
 | **Languages** | Russian and English, picked from the editor language |
 
-<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/panel-light-ae1f2a5b.png" width="640" alt="Usage panel, light theme, 30 days"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/panel-light-49644f56.png" width="640" alt="Usage panel, light theme, 30 days"></p>
 
 ## Setup
 
