@@ -18,11 +18,11 @@ function setup({ lang = 'en', config = {}, store = {} } = {}) {
   process.env.HOME = home
   const sessDir = path.join(home, '.claude', 'usage-monitor')
   fs.mkdirSync(sessDir, { recursive: true })
-  const log = { warn: [], error: [], info: [], panels: [], posted: [], saved: null, calls: [], confirm: undefined, errorChoice: undefined, openPick: undefined, plan: () => ({}), extensions: [] }
+  const log = { warn: [], error: [], info: [], panels: [], posted: [], saved: null, calls: [], offered: [], executed: [], clip: null, opened: null, confirm: undefined, errorChoice: undefined, openPick: undefined, plan: () => ({}), extensions: [] }
   const items = []
   const cmds = {}
   const vs = {
-    env: { language: lang },
+    env: { language: lang, clipboard: { writeText: async v => { log.clip = v } }, openExternal: async u => { log.opened = u.value } },
     workspace: { getConfiguration: () => ({ get: (k, d) => (k in config ? config[k] : d) }), onDidChangeConfiguration: () => ({ dispose() {} }) },
     window: {
       createStatusBarItem: () => { const i = { show() {}, dispose() {} }; items.push(i); return i },
@@ -37,16 +37,16 @@ function setup({ lang = 'en', config = {}, store = {} } = {}) {
       showOpenDialog: async () => (log.openPick ? [{ fsPath: log.openPick }] : undefined),
       showInformationMessage: m => log.info.push(m),
       showSaveDialog: async () => (log.saved ? { fsPath: log.saved } : undefined),
-      showQuickPick: async items => (log.pick === null ? undefined : items.find(i => i.id === (log.pick || 'model'))),
+      showQuickPick: async (items, opts) => { log.offered.push({ ids: items.map(i => i.id), placeHolder: opts && opts.placeHolder }); return log.pick === null ? undefined : items.find(i => i.id === (log.pick || 'model')) },
     },
     StatusBarAlignment: { Right: 1 },
     ThemeColor: class { constructor(id) { this.id = id } },
     MarkdownString: class { constructor(v) { this.value = v } },
-    commands: { registerCommand: (n, f) => { cmds[n] = f; return { dispose() {} } } },
+    commands: { registerCommand: (n, f) => { cmds[n] = f; return { dispose() {} } }, executeCommand: (...a) => { log.executed.push(a) } },
     ViewColumn: { Beside: 2 },
     ProgressLocation: { Notification: 15 },
     extensions: { get all() { return log.extensions } },
-    Uri: { file: p => ({ fsPath: p }) },
+    Uri: { file: p => ({ fsPath: p }), parse: v => ({ value: v }) },
   }
   const orig = Module._load
   const fakeCp = {
@@ -576,7 +576,7 @@ test('install: no Claude Code found offers to pick one by hand', async () => {
   assert.equal(t.log.calls.length, 3)
 })
 
-test('the status item installs the plugin when it is missing, opens the panel otherwise', () => {
+test('the status item installs the plugin when it is missing, otherwise opens the menu (or the panel, by setting)', () => {
   const missing = setup()
   fs.rmSync(missing.sessDir, { recursive: true })
   missing.start()
@@ -585,5 +585,104 @@ test('the status item installs the plugin when it is missing, opens the panel ot
   const ok = setup()
   ok.write('s.json', session())
   ok.start()
-  assert.equal(ok.items[0].command, 'claudeUsage.open')
+  assert.equal(ok.items[0].command, 'claudeUsage.menu')
+  const panelFirst = setup({ config: { clickAction: 'panel' } })
+  panelFirst.write('s.json', session())
+  panelFirst.start()
+  assert.equal(panelFirst.items[0].command, 'claudeUsage.open')
+})
+
+// ---- the status bar menu ----
+function menuSetup(lang = 'en') {
+  const t = setup({ lang, config: { numberGrouping: 'none' } })
+  t.write('s.json', session({ fiveHour: 38, sevenDay: 5, buckets: { [hourNow()]: 1234 } }))
+  return t.start()
+}
+const withPick = (t, id) => { t.log.pick = id; const orig = t.cmds['claudeUsage.menu']; return orig() }
+
+test('menu: every entry does what it says', async () => {
+  const t = menuSetup()
+  await withPick(t, 'copy')
+  assert.equal(t.log.clip, '5h 38% · wk 5% · today 1234 tokens')
+  assert.match(t.log.info.at(-1), /Copied/)
+
+  await withPick(t, 'open')
+  assert.equal(t.log.panels.length, 1)
+
+  await withPick(t, 'settings')
+  assert.deepEqual(t.log.executed.at(-1), ['workbench.action.openSettings', '@ext:andreykilanov.claude-usage-monitor'])
+
+  await withPick(t, 'help')
+  assert.equal(t.log.opened, 'https://github.com/AndreyKilanov/claude-usage-monitor#readme')
+
+  const before = t.items[0].text
+  await withPick(t, 'refresh')
+  assert.equal(t.items[0].text, before)
+
+  t.log.confirm = undefined
+  await withPick(t, 'setup') // asks first; nothing is run when it is not confirmed
+  assert.equal(t.log.calls.length, 0)
+
+  await withPick(t, null) // dismissed: nothing happens
+  assert.equal(t.log.clip, '5h 38% · wk 5% · today 1234 tokens')
+})
+
+test('menu: exactly the seven entries, the summary as its title, and CSV leads into the export flow', async () => {
+  const t = menuSetup()
+  t.log.pick = 'csv'
+  t.log.saved = path.join(t.home, 'menu.csv')
+  await t.cmds['claudeUsage.menu']()
+  assert.deepEqual(t.log.offered[0].ids, ['open', 'copy', 'csv', 'refresh', 'settings', 'setup', 'help'])
+  assert.equal(t.log.offered[0].placeHolder, '5h 38% · wk 5% · today 1234 tokens')
+  // the menu hands over to the export's own picker (by day and model / project / raw rows)
+  assert.deepEqual(t.log.offered[1].ids, ['model', 'project', 'long'])
+})
+
+test('menu in Russian is localized and the copied summary is Russian too', async () => {
+  const t = menuSetup('ru')
+  await withPick(t, 'copy')
+  assert.equal(t.log.clip, '5ч 38% · нед 5% · сегодня 1234 токенов')
+  assert.match(t.log.info.at(-1), /Скопировано/)
+})
+
+// ---- token kinds ----
+test('token kinds: shares add up, cache reads dominate, old data without a split is shown as such', () => {
+  const t = setup()
+  const h = hourNow()
+  t.write('new.json', session({ buckets: { [h]: 1000 }, detail: { [h]: { m: { m: 1000 }, p: { web: 1000 }, k: { i: 50, o: 150, w: 100, r: 700 } } } }))
+  t.write('old.json', session({ buckets: { [h - H]: 400 }, detail: { [h - H]: { m: { m: 400 }, p: { web: 400 } } } })) // before kinds existed
+  t.start()
+  t.cmds['claudeUsage.open']()
+  t.refresh()
+  const k = t.log.posted.at(-1).data.periods.today.kinds
+  assert.deepEqual(k, { cacheRead: 700, cacheWrite: 100, input: 50, output: 150, unknown: 400 })
+  assert.equal(k.cacheRead + k.cacheWrite + k.input + k.output + k.unknown, 1400)
+  assert.equal(t.log.posted.at(-1).data.periods.today.total, 1400)
+  const html = t.log.panels[0].html
+  for (const id of ['kcard', 'stack', 'legend', 'knote']) assert.ok(html.includes(`id="${id}"`), id)
+})
+
+test('token kinds: hostile or broken values cannot produce negative or NaN shares', () => {
+  const t = setup()
+  const h = hourNow()
+  t.write('s.json', session({ buckets: { [h]: 100 }, detail: { [h]: { m: { m: 100 }, p: { p: 100 }, k: { i: -5, o: 'x', w: null, r: 40 } } } }))
+  t.start()
+  t.cmds['claudeUsage.open']()
+  t.refresh()
+  const k = t.log.posted.at(-1).data.periods.today.kinds
+  assert.deepEqual(k, { cacheRead: 40, cacheWrite: 0, input: 0, output: 0, unknown: 60 })
+})
+
+test('CSV raw rows carry the kind split with readable names, in the interface language', async () => {
+  const t = setup({ config: { numberGrouping: 'none' } })
+  const h = hourNow()
+  t.write('s.json', session({ buckets: { [h]: 1000 }, detail: { [h]: { m: { m: 1000 }, p: { web: 1000 }, k: { i: 50, o: 150, w: 100, r: 700 } } } }))
+  t.start()
+  const csv = await exportAs(t, 'long')
+  assert.ok(csv.includes(',type,Cache reads,700'), csv)
+  assert.ok(csv.includes(',type,Output,150'))
+  const ru = setup({ lang: 'ru', config: { numberGrouping: 'none' } })
+  ru.write('s.json', session({ buckets: { [h]: 1000 }, detail: { [h]: { m: { m: 1000 }, p: { web: 1000 }, k: { i: 50, o: 150, w: 100, r: 700 } } } }))
+  ru.start()
+  assert.ok((await exportAs(ru, 'long')).includes(';тип;Чтение кэша;700'))
 })

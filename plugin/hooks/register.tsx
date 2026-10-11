@@ -123,7 +123,7 @@ const adopt = async ($: any) => {
       const detail: Usage['detail'] = { ...(old.detail ?? {}) }
       for (const [k, d] of Object.entries(c.detail ?? {})) {
         const o = detail[k] ?? { m: {}, p: {} }
-        detail[k] = { m: maxMerge(o.m, d.m), p: maxMerge(o.p, d.p) }
+        detail[k] = { m: maxMerge(o.m, d.m), p: maxMerge(o.p, d.p), k: maxMerge(o.k ?? {}, d.k ?? {}) }
       }
       return {
         ...c,
@@ -171,7 +171,9 @@ export const register: Register = on => {
     await adopt($)
     if (e.usage) {
       const u = e.usage
-      const spent = [u.input_tokens, u.output_tokens, u.cache_creation_input_tokens, u.cache_read_input_tokens].reduce((n, x) => n + (Number(x) > 0 ? Number(x) : 0), 0)
+      const part = (x: unknown) => (Number(x) > 0 ? Number(x) : 0)
+      const kinds = { i: part(u.input_tokens), o: part(u.output_tokens), w: part(u.cache_creation_input_tokens), r: part(u.cache_read_input_tokens) }
+      const spent = kinds.i + kinds.o + kinds.w + kinds.r
       const now = await $.clock.now()
       const hour = String(Math.floor(now / HOUR) * HOUR)
       const model = u.model || 'unknown'
@@ -188,6 +190,9 @@ export const register: Register = on => {
         for (const [k, v] of Object.entries(cur.detail ?? {})) if (now - Number(k) < KEEP) detail[k] = v
         buckets[hour] = (buckets[hour] ?? 0) + spent
         const d = detail[hour] ?? { m: {}, p: {} }
+        const k = d.k ?? {}
+        for (const [name, n] of Object.entries(kinds)) k[name] = (k[name] ?? 0) + n
+        d.k = k
         d.m[model] = (d.m[model] ?? 0) + spent
         d.p[project] = (d.p[project] ?? 0) + spent
         detail[hour] = d

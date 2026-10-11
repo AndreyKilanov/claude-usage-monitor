@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+- **Token breakdown.** The panel has a new card, *What the tokens are made of*: cache reads, cache writes, new input and output, as a stacked bar with counts and shares, and a note explaining why the total looks so large. The plugin now records the split per hour; data from before this version is shown as "Not split (older data)". The raw-rows CSV gets `type` rows with the same split.
+- **Status bar menu.** A click opens a small menu: open the panel, copy a one-line summary, export CSV, refresh, settings, install / update the plugin, help. Prefer the old behaviour? Set `claudeUsage.clickAction` to `panel`.
+- Tests: 16 plugin tests, 39 extension tests.
+
+**Update the plugin on every machine** to start recording the split: `/plugin marketplace update claude-usage-monitor`, then `/plugin update usage-monitor@claude-usage-monitor` (or use *Install / update the plugin* in the new menu), then start a new session.
+
 ## 0.5.5
 
 - **One-click plugin install from the editor.** New command **Claude Usage: Install the plugin**, and the status bar item runs it when the data folder is missing (click it). The extension finds the Claude Code copy bundled with your editor (VS Code, Antigravity, Cursor, Windsurf, VSCodium), asks for confirmation naming exactly what will run, then runs `plugin marketplace add` and `plugin install usage-monitor --scope user` — no shell, no terminal. If no Claude Code is found you can point to `claude` by hand.

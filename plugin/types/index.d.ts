@@ -11,7 +11,8 @@ export type Usage = {
   buckets: Record<string, number>
   /** every rate-limit window the last response reported (five_hour, seven_day, seven_day_sonnet, ...) */
   /** per hour of this session: tokens by model and by project folder */
-  detail: Record<string, { m: Record<string, number>; p: Record<string, number> }>
+  /** `k` splits the hour's tokens by kind: i = new input, o = output, w = cache writes, r = cache reads */
+  detail: Record<string, { m: Record<string, number>; p: Record<string, number>; k?: Record<string, number> }>
   limits: { kind: string; percentUsed: number; resetsAt: string | null }[]
 }
 

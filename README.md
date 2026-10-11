@@ -26,7 +26,8 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 | --- | --- |
 | **Status bar** | `5h 38% · wk 5% · today 1.2M`; turns yellow / red at 80% / 90% (configurable) |
 | **Hover** | progress bars, time to reset, Sonnet / Opus weekly windows when your plan has them |
-| **Panel** (click) | ring gauges, 24-hour / 7-day / 30-day charts, breakdown by model and by project |
+| **Menu** (click) | panel, copy a one-line summary, export CSV, refresh, settings, install / update the plugin, help |
+| **Panel** | ring gauges, 24-hour / 7-day / 30-day charts, **what the tokens are made of** (cache reads / writes, new input, output), breakdown by model and by project |
 | **Alerts** | a notification when a limit crosses the warning / critical percent, and when it resets |
 | **Forecast** | "at this pace the 5-hour limit runs out in 23 min" — only when it would happen before the reset |
 | **All sessions** | every window and session on the machine is added up, so "today" is the real total |
@@ -79,6 +80,7 @@ Send any message. The numbers appear after the first reply (sessions started bef
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `claudeUsage.language` | `auto` | `auto`, `en` or `ru` |
+| `claudeUsage.clickAction` | `menu` | what a click on the status bar item does: `menu` or `panel` |
 | `claudeUsage.showFiveHour` / `showWeek` / `showToday` | `true` | choose what the status bar shows |
 | `claudeUsage.showResetTimer` | `false` | time to reset next to the 5-hour percentage |
 | `claudeUsage.warnAt` / `critAt` | `80` / `90` | yellow and red thresholds |
@@ -141,7 +143,8 @@ No dependencies and no build step: the extension is a single JavaScript file.
 | --- | --- |
 | **Строка состояния** | `5ч 38% · нед 5% · сегодня 1.2M`; жёлтая / красная при 80% / 90% (настраивается) |
 | **Подсказка** | шкалы, время до сброса, недельные окна Sonnet / Opus, если они есть в тарифе |
-| **Панель** (клик) | кольца лимитов, графики за сутки / 7 / 30 дней, разбивка по моделям и проектам |
+| **Меню** (клик) | панель, копировать сводку одной строкой, экспорт CSV, обновить, настройки, установка / обновление плагина, справка |
+| **Панель** | кольца лимитов, графики за сутки / 7 / 30 дней, **из чего состоят токены** (чтение и запись кэша, новый ввод, ответ), разбивка по моделям и проектам |
 | **Оповещения** | уведомление при пересечении порога и при сбросе лимита |
 | **Прогноз** | «при таком темпе лимит 5 часов закончится через 23 мин» — только если это случится до сброса |
 | **Все сессии** | все окна и сессии на машине суммируются, «сегодня» — реальный итог |

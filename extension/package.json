@@ -2,7 +2,7 @@
   "name": "claude-usage-monitor",
   "displayName": "Claude Usage Monitor — Limits & Tokens",
   "description": "Claude Code 5-hour and weekly limits, tokens by day, model and project, alerts and a pace forecast in the status bar. Unofficial. Русский / English.",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "publisher": "andreykilanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -54,6 +54,10 @@
       {
         "command": "claudeUsage.setup",
         "title": "Claude Usage: Install the plugin"
+      },
+      {
+        "command": "claudeUsage.menu",
+        "title": "Claude Usage: Menu"
       }
     ],
     "configuration": {
@@ -153,6 +157,19 @@
             "13240843"
           ],
           "description": "How long token counts are grouped in the tooltip, the panel and all CSV exports. Choose `none` when you feed the CSV to a pivot table or a script and want plain numbers."
+        },
+        "claudeUsage.clickAction": {
+          "type": "string",
+          "enum": [
+            "menu",
+            "panel"
+          ],
+          "default": "menu",
+          "enumDescriptions": [
+            "Open a small menu: panel, copy summary, export, refresh, settings, help",
+            "Open the detail panel directly"
+          ],
+          "description": "What a click on the status bar item does."
         }
       }
     }

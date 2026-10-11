@@ -24,6 +24,11 @@ const STR = {
     noFiles: 'Папка есть, но файлов сессий пока нет. Отправьте сообщение в НОВОЙ сессии Claude (плагин должен быть установлен и включён).',
     noReadable: 'Файлы сессий есть, но их не удалось прочитать (повреждены или не те права доступа).',
     lookingIn: 'Ищу данные в:',
+    kindsTitle: 'Из чего состоят токены',
+    kindCacheRead: 'Чтение кэша', kindCacheWrite: 'Запись в кэш', kindInput: 'Новый ввод', kindOutput: 'Ответ', kindUnknown: 'Без разбивки (старые данные)',
+    kindsNote: 'Большую часть составляет чтение кэша: это контекст, который пересылается заново с каждым ответом. Он стоит заметно дешевле нового ввода, поэтому число выглядит огромным.',
+    csvDimType: 'тип',
+    menuPanel: 'Открыть панель', menuCopy: 'Копировать сводку', menuRefresh: 'Обновить', menuSettings: 'Настройки', menuHelp: 'Справка и сообщить о проблеме', copied: 'Скопировано:',
     setupTitle: 'Установить плагин usage-monitor',
     setupAsk: 'Установить плагин usage-monitor для Claude Code?\n\nБудут выполнены две команды встроенной копии Claude Code:\n• plugin marketplace add AndreyKilanov/claude-usage-monitor\n• plugin install usage-monitor --scope user\n\nПлагин берётся с GitHub (AndreyKilanov/claude-usage-monitor) и только записывает цифры лимитов и токенов в папку ~/.claude/usage-monitor.',
     setupYes: 'Установить', setupBusy: 'Устанавливаю плагин…',
@@ -64,6 +69,11 @@ const STR = {
     noFiles: 'The folder exists but has no session files yet. Send a message in a NEW Claude session (the plugin must be installed and enabled).',
     noReadable: 'Session files exist but could not be read (damaged, or no permission).',
     lookingIn: 'Looking for data in:',
+    kindsTitle: 'What the tokens are made of',
+    kindCacheRead: 'Cache reads', kindCacheWrite: 'Cache writes', kindInput: 'New input', kindOutput: 'Output', kindUnknown: 'Not split (older data)',
+    kindsNote: 'Most of the total is cache reads: context re-sent with every reply. It is billed far cheaper than new input, which is why the number looks huge.',
+    csvDimType: 'type',
+    menuPanel: 'Open panel', menuCopy: 'Copy summary', menuRefresh: 'Refresh', menuSettings: 'Settings', menuHelp: 'Help and report a problem', copied: 'Copied:',
     setupTitle: 'Install the usage-monitor plugin',
     setupAsk: 'Install the usage-monitor plugin for Claude Code?\n\nTwo commands will run with the Claude Code copy bundled in your editor:\n• plugin marketplace add AndreyKilanov/claude-usage-monitor\n• plugin install usage-monitor --scope user\n\nThe plugin comes from GitHub (AndreyKilanov/claude-usage-monitor) and only writes limit and token numbers to ~/.claude/usage-monitor.',
     setupYes: 'Install', setupBusy: 'Installing the plugin…',
@@ -286,6 +296,12 @@ const mergeModels = map => {
   return out
 }
 
+// The four kinds, and whatever is left of the total that has no split (data from before the plugin recorded it).
+const kindsOf = p => {
+  const known = p.kinds.i + p.kinds.o + p.kinds.w + p.kinds.r
+  return { cacheRead: p.kinds.r, cacheWrite: p.kinds.w, input: p.kinds.i, output: p.kinds.o, unknown: Math.max(0, p.total - known) }
+}
+
 const top = (map, n = 6) => {
   const rows = Object.entries(map).sort((a, b) => b[1] - a[1])
   const head = rows.slice(0, n)
@@ -298,7 +314,7 @@ const top = (map, n = 6) => {
 function readTotals(list) {
   const now = Date.now()
   const midnight = dayStart(now, 0)
-  const mk = n => ({ bars: [], total: 0, models: {}, projects: {} })
+  const mk = n => ({ bars: [], total: 0, models: {}, projects: {}, kinds: { i: 0, o: 0, w: 0, r: 0 } })
   const periods = { today: mk(), d7: mk(), d30: mk() }
   periods.today.bars = Array.from({ length: 24 }, (_, h) => ({ label: String(h), v: 0, cur: h === new Date().getHours() }))
   const dayBars = n => Array.from({ length: n }, (_, i) => {
@@ -322,13 +338,14 @@ function readTotals(list) {
       const v = Number(v0)
       if (!Number.isFinite(t) || !(v > 0)) continue
       const det = d.detail && typeof d.detail === 'object' ? d.detail[k] : null
-      raw.push({ t, v, m: det ? det.m : null, p: det ? det.p : null })
+      raw.push({ t, v, m: det ? det.m : null, p: det ? det.p : null, k: det && det.k ? det.k : null })
       const add = (per, bar) => {
         per.total += v
         if (bar) bar.v += v
         if (det) {
           for (const [m, n] of Object.entries(det.m || {})) if (Number(n) > 0) per.models[m] = (per.models[m] || 0) + Number(n)
           for (const [p, n] of Object.entries(det.p || {})) if (Number(n) > 0) per.projects[p] = (per.projects[p] || 0) + Number(n)
+          for (const key of ['i', 'o', 'w', 'r']) if (det.k && Number(det.k[key]) > 0) per.kinds[key] += Number(det.k[key])
         }
       }
       if (t >= midnight) {
@@ -438,7 +455,7 @@ function activate(context) {
     context.globalState.update('machineId', machineId)
   }
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
-  item.command = 'claudeUsage.open'
+  item.command = 'claudeUsage.menu'
   let panel
   let history = []
   let lastStamp = 0
@@ -479,12 +496,12 @@ function activate(context) {
     if (!u) {
       item.text = `$(pulse) ${L.noData}`
       item.tooltip = new vscode.MarkdownString(noDataHelp(), false)
-      item.command = fs.existsSync(SESS) ? 'claudeUsage.open' : 'claudeUsage.setup'
+      item.command = fs.existsSync(SESS) ? clickCommand() : 'claudeUsage.setup'
       item.backgroundColor = undefined
       item.show()
       return
     }
-    item.command = 'claudeUsage.open'
+    item.command = clickCommand()
     if (u.updatedAt && u.updatedAt !== lastStamp && u.fiveHour != null) {
       lastStamp = u.updatedAt
       if (history.length && u.fiveHour < history[history.length - 1].p) history = []
@@ -536,6 +553,7 @@ function activate(context) {
         totalText: groupNum(p.total),
         bars: p.bars.map(b => ({ label: b.label, day: b.day, v: b.v, cur: b.cur })),
         models: top(mergeModels(p.models)),
+        kinds: kindsOf(p),
         projects: top(p.projects),
       }
     }
@@ -543,6 +561,7 @@ function activate(context) {
       L: {
         title: L.title, updated: L.updated, resetsCap: L.resetsCap, noReset: L.noReset, forecast: L.forecast, note: L.note,
         tabToday: L.tabToday, tab7: L.tab7, tab30: L.tab30, byModel: L.byModel, byProject: L.byProject, noBreakdown: L.noBreakdown,
+        kindsTitle: L.kindsTitle, kindCacheRead: L.kindCacheRead, kindCacheWrite: L.kindCacheWrite, kindInput: L.kindInput, kindOutput: L.kindOutput, kindUnknown: L.kindUnknown, kindsNote: L.kindsNote,
         tokens: L.tokens, sessions: L.sessions, devices: L.devices, curSession: L.curSession, exportCsv: L.exportCsv, total: L.total, perDay: L.perDay,
       },
       locale: L.locale,
@@ -606,8 +625,9 @@ function activate(context) {
 
     const days = {}
     for (const r of t.raw) {
-      const d = (days[day(r.t)] = days[day(r.t)] || { total: 0, model: {}, project: {} })
+      const d = (days[day(r.t)] = days[day(r.t)] || { total: 0, model: {}, project: {}, kind: {} })
       d.total += r.v
+      if (r.k) for (const [key, n] of Object.entries(r.k)) d.kind[key] = (d.kind[key] || 0) + (Number(n) > 0 ? Number(n) : 0)
       for (const [m, n] of Object.entries(r.m || {})) d.model[prettyModel(m)] = (d.model[prettyModel(m)] || 0) + n
       for (const [p, n] of Object.entries(r.p || {})) d.project[p] = (d.project[p] || 0) + n
     }
@@ -615,12 +635,14 @@ function activate(context) {
 
     let rows
     if (pick.id === 'long') {
-      const dim = { total: L.csvDimTotal, model: L.csvDimModel, project: L.csvDimProject }
+      const dim = { total: L.csvDimTotal, model: L.csvDimModel, project: L.csvDimProject, type: L.csvDimType }
+      const kindName = { r: L.kindCacheRead, w: L.kindCacheWrite, i: L.kindInput, o: L.kindOutput }
       rows = [[L.csvDate, L.csvDimension, L.csvName, L.csvTokens]]
       for (const date of dates) {
         rows.push([date, dim.total, '', groupNum(days[date].total)])
         for (const [m, n] of Object.entries(days[date].model).sort((a, b) => b[1] - a[1])) rows.push([date, dim.model, m, groupNum(n)])
         for (const [p, n] of Object.entries(days[date].project).sort((a, b) => b[1] - a[1])) rows.push([date, dim.project, p, groupNum(n)])
+        for (const [key, n] of Object.entries(days[date].kind).sort((a, b) => b[1] - a[1])) if (n > 0) rows.push([date, dim.type, kindName[key] || key, groupNum(n)])
       }
     } else {
       // one column per model / project (the biggest eight), the rest and anything unattributed in "Other"
@@ -657,6 +679,40 @@ function activate(context) {
     }
     vscode.window.showInformationMessage(`${L.csvDone}: ${uri.fsPath}`)
   }
+
+  const summaryText = () => {
+    if (!last) return ''
+    const { u, t } = last
+    return `${L.h5} ${pct(u.fiveHour)} · ${L.week} ${pct(u.sevenDay)} · ${L.today} ${groupNum(t.periods.today.total)} ${L.tokens}`
+  }
+
+  // The status bar click: a small menu instead of jumping straight into the panel.
+  const menu = async () => {
+    const summary = summaryText()
+    const items = [
+      { label: `$(graph) ${L.menuPanel}`, id: 'open' },
+      { label: `$(copy) ${L.menuCopy}`, detail: summary, id: 'copy' },
+      { label: `$(export) ${L.exportCsv}`, id: 'csv' },
+      { label: `$(refresh) ${L.menuRefresh}`, id: 'refresh' },
+      { label: `$(settings-gear) ${L.menuSettings}`, id: 'settings' },
+      { label: `$(cloud-download) ${L.setupTitle}`, id: 'setup' },
+      { label: `$(question) ${L.menuHelp}`, id: 'help' },
+    ]
+    const pick = await vscode.window.showQuickPick(items, { placeHolder: summary || L.title })
+    if (!pick) return
+    if (pick.id === 'open') return open()
+    if (pick.id === 'copy') {
+      await vscode.env.clipboard.writeText(summary)
+      return vscode.window.showInformationMessage(`${L.copied} ${summary}`)
+    }
+    if (pick.id === 'csv') return exportCsv()
+    if (pick.id === 'refresh') return render()
+    if (pick.id === 'settings') return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${(context.extension && context.extension.id) || 'andreykilanov.claude-usage-monitor'}`)
+    if (pick.id === 'setup') return setup()
+    if (pick.id === 'help') return vscode.env.openExternal(vscode.Uri.parse('https://github.com/AndreyKilanov/claude-usage-monitor#readme'))
+  }
+
+  const clickCommand = () => (cfg('clickAction', 'menu') === 'panel' ? 'claudeUsage.open' : 'claudeUsage.menu')
 
   const setup = async () => {
     let bins = findClaudeBinaries()
@@ -713,6 +769,7 @@ function activate(context) {
     vscode.commands.registerCommand('claudeUsage.refresh', render),
     vscode.commands.registerCommand('claudeUsage.exportCsv', exportCsv),
     vscode.commands.registerCommand('claudeUsage.setup', setup),
+    vscode.commands.registerCommand('claudeUsage.menu', menu),
     { dispose: () => { clearInterval(watchTimer); clearInterval(timer) } },
   )
 }
@@ -761,6 +818,11 @@ function panelHtml() {
   .rl span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
   .meter { height: 6px; border-radius: 3px; background: rgba(127,127,127,.2); margin-top: 4px; overflow: hidden; }
   .meter i { display: block; height: 100%; border-radius: 3px; transition: width .4s ease; }
+  .stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin: 12px 0 10px; background: rgba(127,127,127,.2); }
+  .stack i { display: block; height: 100%; transition: width .4s ease; }
+  .leg { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 5px 0; }
+  .leg b { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .leg span:nth-child(2) { flex: 1; } .leg span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
   .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; gap: 10px; flex-wrap: wrap; }
   .btn { border: 1px solid var(--line); background: var(--card); color: inherit; padding: 6px 12px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 12px; }
   .btn:hover { border-color: var(--accent); }
@@ -774,6 +836,12 @@ function panelHtml() {
     <div class="head"><span class="label" id="plabel"></span><span class="big" id="ptotal"></span></div>
     <div class="sub" id="psub"></div>
     <div class="chart" id="chart"></div>
+  </div>
+  <div class="card" id="kcard" style="margin-top:12px">
+    <div class="label" id="klabel"></div>
+    <div class="stack" id="stack"></div>
+    <div id="legend"></div>
+    <div class="sub" id="knote"></div>
   </div>
   <div class="cols2">
     <div class="card"><div class="label" id="mlabel"></div><div id="models"></div></div>
@@ -817,6 +885,23 @@ function panelHtml() {
     })
   }
 
+  function drawKinds(p) {
+    const k = p.kinds, total = Math.max(1, p.total)
+    const parts = [
+      ['cacheRead', data.L.kindCacheRead, '#40e0d0'], ['cacheWrite', data.L.kindCacheWrite, '#7aa2ff'],
+      ['input', data.L.kindInput, '#ffb547'], ['output', data.L.kindOutput, '#ff6363'], ['unknown', data.L.kindUnknown, 'rgba(127,127,127,.55)'],
+    ].filter(x => k[x[0]] > 0)
+    $('kcard').classList.toggle('hidden', !p.total)
+    $('klabel').textContent = data.L.kindsTitle
+    const stack = $('stack'), legend = $('legend'); stack.replaceChildren(); legend.replaceChildren()
+    for (const [key, name, color] of parts) {
+      const seg = el('i'); seg.style.width = (k[key] / total * 100) + '%'; seg.style.background = color; seg.title = name + ' — ' + fmt(k[key]); stack.appendChild(seg)
+      const row = el('div', 'leg'), dot = el('b'); dot.style.background = color
+      row.append(dot, el('span', '', name), el('span', '', fmt(k[key]) + ' · ' + Math.round(k[key] / total * 100) + '%')); legend.appendChild(row)
+    }
+    $('knote').textContent = k.cacheRead / total >= 0.5 ? data.L.kindsNote : ''
+  }
+
   function draw() {
     if (!data) return
     $('title').textContent = data.L.title
@@ -846,6 +931,7 @@ function panelHtml() {
       c.append(st, el('div', 'tick', showTick ? (tab === 'd30' ? String(b.day) : b.label) : ''))
       chart.appendChild(c)
     })
+    drawKinds(p)
     $('mlabel').textContent = data.L.byModel; $('plabel2').textContent = data.L.byProject
     rows($('models'), p.models, p.total); rows($('projects'), p.projects, p.total)
     $('note').textContent = data.L.note

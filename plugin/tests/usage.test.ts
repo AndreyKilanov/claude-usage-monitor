@@ -192,3 +192,28 @@ test('a note in the plugin folder says the plugin loaded, and what failed when a
   expect(note![1]).toContain('EACCES')
   expect(note![1]).toContain('/home/u/.claude/usage-monitor/s1.json')
 })
+
+const mixed = (i: number, o: number, w: number, r: number) => ({ model: 'm', input_tokens: i, output_tokens: o, cache_creation_input_tokens: w, cache_read_input_tokens: r })
+
+test('tokens are split by kind: new input, output, cache writes, cache reads', async ($, on) => {
+  const files = new Map<string, string>()
+  world(on, { v: 's1' }, files)
+  await complete($, mixed(10, 20, 300, 4000))
+  await complete($, mixed(1, 2, 3, 4))
+  const f = fileOf(files, 's1')
+  const hour = String(Math.floor(NOW / HOUR) * HOUR)
+  expect(f.detail[hour].k).toEqual({ i: 11, o: 22, w: 303, r: 4004 })
+  expect(f.tokens).toBe(11 + 22 + 303 + 4004)
+  expect(f.buckets[hour]).toBe(f.tokens) // the split always adds up to the total
+})
+
+test('kinds survive odd numbers and a resumed session', async ($, on) => {
+  const files = new Map<string, string>()
+  const hour = String(Math.floor(NOW / HOUR) * HOUR)
+  files.set('/home/u/.claude/usage-monitor/s1.json', JSON.stringify({ tokens: 500, buckets: { [hour]: 500 }, detail: { [hour]: { m: { m: 500 }, p: { 'my-project': 500 }, k: { i: 100, o: 100, w: 100, r: 200 } } }, updatedAt: NOW - 1 }))
+  world(on, { v: 's1' }, files)
+  await complete($, mixed(-5, Number.NaN, 7, 3))
+  const f = fileOf(files, 's1')
+  expect(f.detail[hour].k).toEqual({ i: 100, o: 100, w: 107, r: 203 })
+  expect(f.buckets[hour]).toBe(510)
+})
