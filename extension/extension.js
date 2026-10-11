@@ -19,6 +19,10 @@ const STR = {
   ru: {
     noData: 'Claude: нет данных',
     noDataTip: 'Цифры появятся после первого ответа Claude (мод usage-monitor)',
+    noFolder: 'Папка не найдена — плагин ещё ничего не записал. Поставьте плагин и начните новую сессию Claude:',
+    noFiles: 'Папка есть, но файлов сессий пока нет. Отправьте сообщение в НОВОЙ сессии Claude (плагин должен быть установлен и включён).',
+    noReadable: 'Файлы сессий есть, но их не удалось прочитать (повреждены или не те права доступа).',
+    lookingIn: 'Ищу данные в:',
     h5: '5ч', week: 'нед', today: 'сегодня',
     title: 'Claude — расход', win5: 'Окно 5 часов', winWeek: 'Неделя',
     sonnet: 'Неделя · Sonnet', opus: 'Неделя · Opus', spend: 'Лимит трат', other: 'Лимит',
@@ -45,6 +49,10 @@ const STR = {
   en: {
     noData: 'Claude: no data',
     noDataTip: 'Numbers appear after the first Claude reply (usage-monitor mod)',
+    noFolder: 'Folder not found — the plugin has not written anything yet. Install the plugin and start a new Claude session:',
+    noFiles: 'The folder exists but has no session files yet. Send a message in a NEW Claude session (the plugin must be installed and enabled).',
+    noReadable: 'Session files exist but could not be read (damaged, or no permission).',
+    lookingIn: 'Looking for data in:',
     h5: '5h', week: 'wk', today: 'today',
     title: 'Claude — usage', win5: '5-hour window', winWeek: 'Week',
     sonnet: 'Week · Sonnet', opus: 'Week · Opus', spend: 'Spend limit', other: 'Limit',
@@ -331,6 +339,21 @@ function forecast(history, u) {
   return eta < reset ? eta : null
 }
 
+// Says why there is nothing to show, so "no data" is never a mystery (wrong machine, plugin missing, unreadable files).
+function noDataHelp() {
+  let names = []
+  let exists = true
+  try {
+    names = fs.readdirSync(SESS).filter(f => f.endsWith('.json'))
+  } catch {
+    exists = false
+  }
+  const why = !exists ? `${L.noFolder}\n\n\`/plugin install usage-monitor --marketplace AndreyKilanov/claude-usage-monitor\``
+    : names.length === 0 ? L.noFiles
+    : L.noReadable
+  return `${L.noDataTip}\n\n${why}\n\n${L.lookingIn}\n\n\`${SESS}\``
+}
+
 function activate(context) {
   pickLocale()
   let machineId = context.globalState.get('machineId')
@@ -379,7 +402,7 @@ function activate(context) {
     const t = readTotals(all)
     if (!u) {
       item.text = `$(pulse) ${L.noData}`
-      item.tooltip = L.noDataTip
+      item.tooltip = new vscode.MarkdownString(noDataHelp(), false)
       item.backgroundColor = undefined
       item.show()
       return
@@ -726,4 +749,4 @@ function panelHtml() {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, __test: { prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }
+module.exports = { activate, deactivate, __test: { noDataHelp, prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }

@@ -75,6 +75,25 @@ test('no data at all: a calm message, no crash', () => {
   t.stop()
 })
 
+test('"no data" explains itself: folder missing, folder empty, files unreadable', () => {
+  const missing = setup()
+  fs.rmSync(missing.sessDir, { recursive: true })
+  missing.start()
+  assert.match(missing.tooltip(), /Folder not found/)
+  assert.match(missing.tooltip(), /plugin install usage-monitor/)
+  assert.ok(missing.tooltip().includes(missing.sessDir), 'shows where it looks')
+  const empty = setup().start()
+  assert.match(empty.tooltip(), /no session files yet/)
+  const bad = setup()
+  bad.write('x.json', '{"torn":')
+  bad.start()
+  assert.match(bad.tooltip(), /could not be read/)
+  const ru = setup({ lang: 'ru' })
+  fs.rmSync(ru.sessDir, { recursive: true })
+  ru.start()
+  assert.match(ru.tooltip(), /Папка не найдена/)
+})
+
 test('a half-written file is skipped and the good one is used', () => {
   const t = setup()
   t.write('torn.json', '{"fiveHour":43,"updatedAt":17917\0\0\0\0')

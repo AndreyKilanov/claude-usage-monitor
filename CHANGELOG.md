@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.3
+
+- **Windows fix.** The plugin looked for the home folder only in `HOME`, which Windows does not set, so nothing was written and the status bar said "no data". It now also reads `USERPROFILE` (and `HOMEDRIVE` + `HOMEPATH`), and takes the project name from backslash paths.
+- The "no data" tooltip now says why (folder missing, folder empty, files unreadable), shows the exact folder it is looking in, and gives the install command.
+- Tests: 12 plugin tests, 27 extension tests.
+
+**Update the plugin on every machine** (the extension needs no change for the fix): in a Claude Code session run `/plugin marketplace update claude-usage-monitor`, then `/plugin update usage-monitor@claude-usage-monitor`, and start a new session.
+
 ## 0.5.2
 
 - CSV export redone for readability: pick **by day and model** (date, total, one column per model, a total row), **by day and project**, or the raw rows. Tokens that have no model / project split go to "Other".

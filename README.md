@@ -95,7 +95,16 @@ Commands (Command Palette): **Claude Usage: Open Panel**, **Refresh**, **Export 
 - Token counts include cache reads, so the numbers are large. Go by the percentages for how much of your limit is left.
 - Sonnet / Opus weekly windows and the 5-hour window only appear if your plan reports them.
 - Needs a Claude subscription that reports usage windows. On other setups the percentages show "—" and tokens still count.
-- Tested on macOS. Windows and Linux are untested.
+- Developed and tested on macOS. Windows is supported (home folder from `USERPROFILE`) but only covered by automated tests, not by daily use; Linux is untested. Please [open an issue](https://github.com/AndreyKilanov/claude-usage-monitor/issues) if something is off.
+
+## Troubleshooting: the status bar says "no data"
+
+Hover it — the tooltip says which case you are in and which folder it checks (`~/.claude/usage-monitor/`).
+
+1. **Folder not found:** the plugin is not installed *on this machine*. Install it (see above) and start a new Claude session.
+2. **Folder exists but is empty:** send a message in a **new** session. Sessions started before the plugin was installed or updated are not counted.
+3. **Remote / WSL / SSH windows:** the extension and the plugin must run on the same machine and read the same home folder.
+4. **Still nothing:** run `/plugin` in Claude Code and check that `usage-monitor` is enabled.
 
 ## Build from source
 
@@ -166,4 +175,13 @@ No dependencies and no build step: the extension is a single JavaScript file.
 - **Проценты — по всему аккаунту**, одинаковые на всех устройствах. **Токены считаются на каждой машине отдельно**, если не задана папка синхронизации.
 - В токены входят кэш-чтения, поэтому цифры большие. Сколько осталось от лимита — смотрите по процентам.
 - Окна Sonnet / Opus показываются, только если тариф их отдаёт.
-- Проверено на macOS. Windows и Linux не проверялись.
+- Разрабатывалось и проверялось на macOS. Windows поддерживается (домашняя папка берётся из `USERPROFILE`), но проверено только автотестами; Linux не проверялся.
+
+## Если в строке «no data»
+
+Наведите курсор: подсказка скажет, какой из случаев ваш, и покажет папку, которую расширение проверяет (`~/.claude/usage-monitor/`).
+
+1. **Папка не найдена** — плагин не установлен *на этой машине*. Поставьте его и начните новую сессию Claude.
+2. **Папка есть, но пустая** — отправьте сообщение в **новой** сессии. Сессии, начатые до установки или обновления плагина, не учитываются.
+3. **Удалённые окна (WSL / SSH):** расширение и плагин должны работать на одной машине и читать одну домашнюю папку.
+4. **Всё равно пусто** — выполните `/plugin` в Claude Code и проверьте, что `usage-monitor` включён.

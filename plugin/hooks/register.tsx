@@ -50,6 +50,15 @@ const line = (u: Usage, now: number, ru: boolean) => {
 const HOUR = 3600_000
 const KEEP = 35 * 24 * HOUR
 
+// macOS and Linux set HOME; Windows sets USERPROFILE (or HOMEDRIVE + HOMEPATH) instead.
+const homeDir = async ($: any): Promise<string | undefined> => {
+  const home = (await $.env.get('HOME')) || (await $.env.get('USERPROFILE'))
+  if (home) return home
+  const drive = await $.env.get('HOMEDRIVE')
+  const path = await $.env.get('HOMEPATH')
+  return drive && path ? `${drive}${path}` : undefined
+}
+
 const maxMerge = (a: Record<string, number>, b: Record<string, number>) => {
   const out = { ...a }
   for (const [k, v] of Object.entries(b)) out[k] = Math.max(out[k] ?? 0, Number(v) || 0)
@@ -80,7 +89,7 @@ const adopt = async ($: any) => {
     }
     if (hydrated) return
     hydrated = true
-    const home = await $.env.get('HOME')
+    const home = await homeDir($)
     if (!home) return
     let old: Partial<Usage> | null = null
     try {
@@ -109,7 +118,7 @@ const adopt = async ($: any) => {
 
 const persist = async ($: any) => {
   try {
-    const home = await $.env.get('HOME')
+    const home = await homeDir($)
     if (!home) return
     await adopt($)
     const u = await read($, usage)
@@ -133,7 +142,7 @@ export const register: Register = on => {
       const model = u.model || 'unknown'
       let project = 'unknown'
       try {
-        project = (await $.session.cwd()).split('/').filter(Boolean).pop() || 'unknown'
+        project = (await $.session.cwd()).split(/[\\/]/).filter(Boolean).pop() || 'unknown'
       } catch {
         // no cwd: keep "unknown"
       }

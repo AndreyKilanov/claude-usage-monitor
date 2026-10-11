@@ -115,3 +115,46 @@ test('a session with no subscription limits still counts tokens', async ($, on) 
   expect(f.fiveHour).toBe(null)
   expect(f.tokens).toBe(10)
 })
+
+// Windows: no HOME, a USERPROFILE, backslash paths
+const winWorld = (on: any, files: Map<string, string>, env: Record<string, string>, cwd: string) => {
+  mock.clock(on, { now: NOW })
+  mock.env(on, env)
+  on('session.id', () => ({ value: 'w1' }))
+  on('session.cwd', () => ({ value: cwd }))
+  on('fs.write', (_$: any, e: any) => {
+    files.set(e.path, e.text)
+    return { value: undefined }
+  })
+  on('fs.read', (_$: any, e: any) => {
+    if (!files.has(e.path)) throw new Error('ENOENT')
+    return { value: files.get(e.path) }
+  })
+  on('turn.complete', () => ({ text: '' }))
+}
+
+test('Windows: the home folder comes from USERPROFILE and the project from a backslash path', async ($, on) => {
+  const files = new Map<string, string>()
+  winWorld(on, files, { USERPROFILE: 'C:\\Users\\andy' }, 'C:\\work\\my-project')
+  await complete($, usageOf('m', 10))
+  // the test engine runs on a POSIX host and prefixes a drive path with its cwd; a real Windows host does not
+  const key = [...files.keys()].find(k => k.endsWith('C:\\Users\\andy/.claude/usage-monitor/w1.json'))
+  expect(key).toBeDefined()
+  const f = JSON.parse(files.get(key!) ?? 'null')
+  expect(f.tokens).toBe(10)
+  expect(Object.values(f.detail as Record<string, { p: Record<string, number> }>)[0]!.p['my-project']).toBe(10)
+})
+
+test('Windows: HOMEDRIVE + HOMEPATH is the last resort; with none, nothing is written and nothing breaks', async ($, on) => {
+  const files = new Map<string, string>()
+  winWorld(on, files, { HOMEDRIVE: 'D:', HOMEPATH: '\\Users\\andy' }, 'D:\\p')
+  await complete($, usageOf('m', 5))
+  expect([...files.keys()].some(k => k.endsWith('D:\\Users\\andy/.claude/usage-monitor/w1.json'))).toBe(true)
+})
+
+test('no home folder at all: the turn still completes', async ($, on) => {
+  const files = new Map<string, string>()
+  winWorld(on, files, {}, '/p')
+  await complete($, usageOf('m', 5))
+  expect(files.size).toBe(0)
+})
