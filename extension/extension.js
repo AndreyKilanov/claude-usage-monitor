@@ -9,6 +9,12 @@ const SESS = path.join(DIR, 'usage-monitor')
 const DAY = 86400_000
 const KEEP_DAYS = 36
 
+// local midnight, `back` days before `now`; built from the calendar so a 23 / 25-hour day cannot shift it
+const dayStart = (now, back) => {
+  const d = new Date(now)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - back).getTime()
+}
+
 const STR = {
   ru: {
     noData: 'Claude: нет данных',
@@ -59,8 +65,9 @@ const pickLocale = () => {
   L = String(c === 'auto' ? vscode.env.language : c).toLowerCase().startsWith('ru') ? STR.ru : STR.en
 }
 
-const pct = p => (p === null || p === undefined ? '—' : `${Math.round(p)}%`)
-const tok = n => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(Math.round(n || 0)))
+const num = v => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v))
+const pct = p => (num(p) === null ? '—' : `${Math.round(num(p))}%`)
+const tok = n => (!Number.isFinite(Number(n)) ? '0' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(Math.round(n || 0)))
 const fmtMs = ms => {
   const m = Math.round(ms / 60000)
   if (m < 60) return `${Math.max(m, 1)} ${L.min}`
@@ -84,10 +91,19 @@ const prettyModel = id => {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+const cache = new Map() // full path -> { mtimeMs, size, d }
+
 function readJson(file) {
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'))
+    const st = fs.statSync(file)
+    const hit = cache.get(file)
+    if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) return hit.d
+    const d = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return null
+    cache.set(file, { mtimeMs: st.mtimeMs, size: st.size, d })
+    return d
   } catch {
+    cache.delete(file)
     return null // missing, or half-written: skip it
   }
 }
@@ -101,29 +117,46 @@ function readDir(dir, machine) {
   for (const f of files) {
     const full = path.join(dir, f)
     const d = readJson(full)
-    if (d) out.push({ full, d, machine })
+    if (d) out.push({ full, name: f, d, machine })
   }
   return out
 }
 
+const syncRoot = () => {
+  const raw = String(cfg('syncFolder', '') || '').trim()
+  if (!raw) return ''
+  return raw.startsWith('~') ? path.join(os.homedir(), raw.slice(1)) : raw
+}
+
 // This machine's sessions, plus the other machines' when a sync folder is set.
+// A session id is unique, so a file seen twice (a mirror of our own, a reinstall) counts once: the fresher copy wins.
 function scan(machineId) {
-  const out = readDir(SESS, machineId)
-  const sync = cfg('syncFolder', '')
+  const all = readDir(SESS, machineId)
+  const sync = syncRoot()
   if (sync) {
     let dirs = []
     try {
       dirs = fs.readdirSync(sync, { withFileTypes: true }).filter(e => e.isDirectory() && e.name !== machineId)
     } catch {}
-    for (const e of dirs) out.push(...readDir(path.join(sync, e.name), e.name))
+    for (const e of dirs) all.push(...readDir(path.join(sync, e.name), e.name))
   }
-  return out
+  const byName = new Map()
+  for (const x of all) {
+    const prev = byName.get(x.name)
+    if (!prev || (x.d.updatedAt || 0) > (prev.d.updatedAt || 0)) byName.set(x.name, x)
+  }
+  return [...byName.values()]
 }
 
 // Copy this machine's session files into <sync>/<machineId>/ (write to a temp name, then rename).
 function pushSync(machineId) {
-  const sync = cfg('syncFolder', '')
+  const sync = syncRoot()
   if (!sync) return
+  try {
+    if (!fs.statSync(sync).isDirectory()) return // an unmounted or mistyped folder is left alone, never created
+  } catch {
+    return
+  }
   const dest = path.join(sync, machineId)
   try {
     fs.mkdirSync(dest, { recursive: true })
@@ -145,19 +178,40 @@ function pushSync(machineId) {
 }
 
 // The limits are account-wide, so the freshest session that has a reading is the truth.
+// Values are sanitized; a window whose reset time has passed since the reading is shown as empty, not stale.
 function readLimits(sessions) {
-  const has = s => s.d.fiveHour != null || s.d.sevenDay != null || (s.d.limits || []).length > 0
+  const has = x => num(x.d.fiveHour) !== null || num(x.d.sevenDay) !== null || (Array.isArray(x.d.limits) && x.d.limits.length > 0)
   const pool = sessions.filter(has)
-  const newest = (pool.length ? pool : sessions).reduce((a, b) => (!a || (b.d.updatedAt || 0) > (a.d.updatedAt || 0) ? b : a), null)
-  return newest ? newest.d : null
+  const newest = (pool.length ? pool : sessions).reduce((a, b) => (!a || (num(b.d.updatedAt) || 0) > (num(a.d.updatedAt) || 0) ? b : a), null)
+  if (!newest) return null
+  const d = newest.d
+  const now = Date.now()
+  const fresh = (p, iso) => {
+    const v = num(p)
+    const t = iso ? Date.parse(iso) : NaN
+    if (v !== null && Number.isFinite(t) && t < now) return { p: 0, resetsAt: null }
+    return { p: v, resetsAt: Number.isFinite(t) ? iso : null }
+  }
+  const five = fresh(d.fiveHour, d.fiveHourResetsAt)
+  const week = fresh(d.sevenDay, d.sevenDayResetsAt)
+  const limits = (Array.isArray(d.limits) ? d.limits : [])
+    .filter(l => l && typeof l.kind === 'string' && num(l.percentUsed) !== null)
+    .map(l => {
+      const f = fresh(l.percentUsed, l.resetsAt)
+      return { kind: String(l.kind).slice(0, 40), percentUsed: f.p, resetsAt: f.resetsAt }
+    })
+  return {
+    fiveHour: five.p, fiveHourResetsAt: five.resetsAt, sevenDay: week.p, sevenDayResetsAt: week.resetsAt,
+    limits, tokens: num(d.tokens) || 0, usd: num(d.usd), updatedAt: num(d.updatedAt) || 0,
+  }
 }
 
 // every window the mod saw, five_hour and seven_day first
 function windows(u) {
   const list = (u.limits || []).map(l => ({ kind: l.kind, p: l.percentUsed, resetsAt: l.resetsAt }))
   if (!list.length) {
-    if (u.fiveHour != null) list.push({ kind: 'five_hour', p: u.fiveHour, resetsAt: u.fiveHourResetsAt })
-    if (u.sevenDay != null) list.push({ kind: 'seven_day', p: u.sevenDay, resetsAt: u.sevenDayResetsAt })
+    if (u.fiveHour !== null) list.push({ kind: 'five_hour', p: u.fiveHour, resetsAt: u.fiveHourResetsAt })
+    if (u.sevenDay !== null) list.push({ kind: 'seven_day', p: u.sevenDay, resetsAt: u.sevenDayResetsAt })
   }
   const order = { five_hour: 0, seven_day: 1 }
   return list.sort((a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9))
@@ -183,13 +237,13 @@ const top = (map, n = 6) => {
 // Tokens for every session on every device: today (by hour), 7 and 30 days (by day), and breakdowns.
 function readTotals(list) {
   const now = Date.now()
-  const midnight = new Date().setHours(0, 0, 0, 0)
+  const midnight = dayStart(now, 0)
   const mk = n => ({ bars: [], total: 0, models: {}, projects: {} })
   const periods = { today: mk(), d7: mk(), d30: mk() }
   periods.today.bars = Array.from({ length: 24 }, (_, h) => ({ label: String(h), v: 0, cur: h === new Date().getHours() }))
   const dayBars = n => Array.from({ length: n }, (_, i) => {
-    const start = midnight - (n - 1 - i) * DAY
-    return { start, label: L.days[new Date(start).getDay()], day: new Date(start).getDate(), v: 0, cur: i === n - 1 }
+    const start = dayStart(now, n - 1 - i)
+    return { start, end: dayStart(now, n - 2 - i), label: L.days[new Date(start).getDay()], day: new Date(start).getDate(), v: 0, cur: i === n - 1 }
   })
   periods.d7.bars = dayBars(7)
   periods.d30.bars = dayBars(30)
@@ -198,21 +252,23 @@ function readTotals(list) {
   const devices = new Set()
   for (const { full, d, machine } of list) {
     devices.add(machine)
-    if (now - (d.updatedAt || 0) > KEEP_DAYS * DAY) {
+    if (now - (num(d.updatedAt) || 0) > KEEP_DAYS * DAY) {
       if (full.startsWith(SESS)) { try { fs.unlinkSync(full) } catch {} }
       continue
     }
     let hitToday = false
-    for (const [k, v] of Object.entries(d.buckets || {})) {
+    for (const [k, v0] of Object.entries(d.buckets && typeof d.buckets === 'object' ? d.buckets : {})) {
       const t = Number(k)
-      const det = (d.detail || {})[k]
+      const v = Number(v0)
+      if (!Number.isFinite(t) || !(v > 0)) continue
+      const det = d.detail && typeof d.detail === 'object' ? d.detail[k] : null
       raw.push({ t, v, m: det ? det.m : null, p: det ? det.p : null })
       const add = (per, bar) => {
         per.total += v
         if (bar) bar.v += v
         if (det) {
-          for (const [m, n] of Object.entries(det.m || {})) per.models[m] = (per.models[m] || 0) + n
-          for (const [p, n] of Object.entries(det.p || {})) per.projects[p] = (per.projects[p] || 0) + n
+          for (const [m, n] of Object.entries(det.m || {})) if (Number(n) > 0) per.models[m] = (per.models[m] || 0) + Number(n)
+          for (const [p, n] of Object.entries(det.p || {})) if (Number(n) > 0) per.projects[p] = (per.projects[p] || 0) + Number(n)
         }
       }
       if (t >= midnight) {
@@ -220,7 +276,7 @@ function readTotals(list) {
         add(periods.today, periods.today.bars[new Date(t).getHours()])
       }
       for (const [key, n] of [['d7', 7], ['d30', 30]]) {
-        const bar = periods[key].bars.find(b => t >= b.start && t < b.start + DAY)
+        const bar = periods[key].bars.find(b => t >= b.start && t < b.end)
         if (bar) add(periods[key], bar)
       }
     }
@@ -257,10 +313,10 @@ function activate(context) {
   let history = []
   let lastStamp = 0
   let last = null
-  const seen = context.globalState.get('alerts', {})
 
   const alerts = u => {
     if (!cfg('notifications', true)) return
+    const seen = context.globalState.get('alerts', {})
     const warn = cfg('warnAt', 80)
     const crit = cfg('critAt', 90)
     for (const w of windows(u)) {
@@ -370,7 +426,10 @@ function activate(context) {
   }
 
   const pushPanel = () => {
-    if (panel && last) panel.webview.postMessage({ type: 'data', data: payload() })
+    if (!panel || !last) return
+    try {
+      panel.webview.postMessage({ type: 'data', data: payload() })
+    } catch {}
   }
 
   const open = () => {
@@ -403,7 +462,10 @@ function activate(context) {
       for (const [m, n] of Object.entries(r.m || {})) bump(date, 'model', prettyModel(m), n)
       for (const [p, n] of Object.entries(r.p || {})) bump(date, 'project', p, n)
     }
-    const q = s => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s)
+    const q = s => {
+      const t = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s // a project folder named "=1+1" must not run as a formula
+      return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t
+    }
     const rows = Object.entries(byDay)
       .map(([k, v]) => k.split('\u0000').concat(String(v)))
       .sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]) || b[3] - a[3])
@@ -413,16 +475,22 @@ function activate(context) {
       filters: { CSV: ['csv'] },
     })
     if (!uri) return
-    fs.writeFileSync(uri.fsPath, csv)
+    try {
+      fs.writeFileSync(uri.fsPath, csv)
+    } catch (e) {
+      return vscode.window.showErrorMessage(`CSV: ${e && e.message ? e.message : e}`)
+    }
     vscode.window.showInformationMessage(`${L.csvDone}: ${uri.fsPath}`)
   }
 
   render()
   const watchTimer = setInterval(render, 3000)
+  if (watchTimer.unref) watchTimer.unref()
   let timer
   const schedule = () => {
     clearInterval(timer)
     timer = setInterval(render, Math.max(10, cfg('refreshIntervalSeconds', 30)) * 1000)
+    if (timer.unref) timer.unref()
   }
   schedule()
 
@@ -516,11 +584,11 @@ function panelHtml() {
   const color = p => ({ ok: 'var(--ok)', warn: 'var(--warn)', crit: 'var(--crit)' })[level(p)]
 
   function ring(w) {
-    const card = el('div', 'card ringcard ' + level(w.p))
-    const R = 32, C = 2 * Math.PI * R, v = Math.min(100, Math.max(0, w.p || 0)) / 100 * C
+    const card = el('div', 'card ringcard ' + level(Number(w.p) || 0))
+    const R = 32, C = 2 * Math.PI * R, p0 = Number(w.p) || 0, v = Math.min(100, Math.max(0, p0)) / 100 * C
     const wrap = el('div', 'ring')
-    wrap.innerHTML = '<svg viewBox="0 0 80 80"><circle class="trk" cx="40" cy="40" r="' + R + '" fill="none" stroke-width="8"/><circle class="val" cx="40" cy="40" r="' + R + '" fill="none" stroke-width="8" stroke="' + color(w.p) + '" stroke-dasharray="' + v + ' ' + C + '"/></svg>'
-    wrap.appendChild(el('div', 'pc', Math.round(w.p) + '%'))
+    wrap.innerHTML = '<svg viewBox="0 0 80 80"><circle class="trk" cx="40" cy="40" r="' + R + '" fill="none" stroke-width="8"/><circle class="val" cx="40" cy="40" r="' + R + '" fill="none" stroke-width="8" stroke="' + color(p0) + '" stroke-dasharray="' + v + ' ' + C + '"/></svg>'
+    wrap.appendChild(el('div', 'pc', Math.round(p0) + '%'))
     const txt = el('div')
     txt.appendChild(el('div', 'label', w.name))
     txt.appendChild(el('div', 'sub', w.reset ? data.L.resetsCap + ' ' + w.reset : data.L.noReset))
@@ -584,4 +652,4 @@ function panelHtml() {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, __test: { prettyModel, readTotals, forecast, panelHtml } }
+module.exports = { activate, deactivate, __test: { prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }

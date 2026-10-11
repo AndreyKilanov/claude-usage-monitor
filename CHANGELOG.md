@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1
+
+Robustness pass, found by testing the edge cases.
+
+- Plugin: a session cleared with `/clear` no longer inherits the previous session's counters (they would have been counted twice); a resumed session merges with its own file instead of overwriting it; odd usage numbers (negative, `NaN`, missing) can no longer poison the totals.
+- Extension: a limit window that has already reset is shown as empty instead of the stale percentage; a session that appears twice (local copy + synced copy, or after a reinstall) counts once; day boundaries stay correct across daylight-saving changes; unchanged session files are cached instead of re-read every few seconds; a missing or unmounted sync folder is never created and `~` is expanded; CSV cells that start with `=`, `+`, `-` or `@` are neutralised so a project folder name cannot run as a spreadsheet formula; unreadable or wrongly-typed data files show as "no data" rather than `NaN`; several editor windows no longer repeat the same notification.
+- Tests: 9 plugin tests and 19 extension tests (`node --test extension/test/extension.test.js`).
+
 ## 0.5.0
 
 - Panel redrawn: ring gauges, Today / 7 days / 30 days tabs with charts, breakdown by model and by project.

@@ -4,6 +4,7 @@ import type { Register } from 'claude-code'
 import type { Usage } from '../types'
 
 const empty: Usage = {
+  sid: null,
   fiveHour: null,
   fiveHourResetsAt: null,
   sevenDay: null,
@@ -49,10 +50,68 @@ const line = (u: Usage, now: number, ru: boolean) => {
 const HOUR = 3600_000
 const KEEP = 35 * 24 * HOUR
 
+const maxMerge = (a: Record<string, number>, b: Record<string, number>) => {
+  const out = { ...a }
+  for (const [k, v] of Object.entries(b)) out[k] = Math.max(out[k] ?? 0, Number(v) || 0)
+  return out
+}
+
+let hydrated = false
+
+// Makes the counters belong to the live session: after /clear the state may still hold the previous
+// session's numbers (they are already in its own file, so keep them out of the new one), and a resumed
+// session starts from what its file already holds instead of overwriting it with less.
+const adopt = async ($: any) => {
+  try {
+    const sid: string = await $.session.id()
+    const cur = await read($, usage)
+    if (cur.sid !== sid) {
+      await update($, usage, c => ({
+        ...empty,
+        sid,
+        fiveHour: c.fiveHour,
+        fiveHourResetsAt: c.fiveHourResetsAt,
+        sevenDay: c.sevenDay,
+        sevenDayResetsAt: c.sevenDayResetsAt,
+        usd: c.usd,
+        limits: c.limits,
+      }))
+      hydrated = false
+    }
+    if (hydrated) return
+    hydrated = true
+    const home = await $.env.get('HOME')
+    if (!home) return
+    let old: Partial<Usage> | null = null
+    try {
+      old = JSON.parse(await $.fs.read(`${home}/.claude/usage-monitor/${sid}.json`))
+    } catch {
+      return // no file yet, or half-written: nothing to merge
+    }
+    if (!old || typeof old !== 'object') return
+    await update($, usage, c => {
+      const detail: Usage['detail'] = { ...(old.detail ?? {}) }
+      for (const [k, d] of Object.entries(c.detail ?? {})) {
+        const o = detail[k] ?? { m: {}, p: {} }
+        detail[k] = { m: maxMerge(o.m, d.m), p: maxMerge(o.p, d.p) }
+      }
+      return {
+        ...c,
+        buckets: maxMerge(old.buckets ?? {}, c.buckets),
+        detail,
+        tokens: Math.max(c.tokens, Number(old.tokens) || 0),
+      }
+    })
+  } catch {
+    // never let bookkeeping break a turn
+  }
+}
+
 const persist = async ($: any) => {
   try {
     const home = await $.env.get('HOME')
     if (!home) return
+    await adopt($)
     const u = await read($, usage)
     const now = await $.clock.now()
     const sid = await $.session.id()
@@ -65,9 +124,10 @@ const persist = async ($: any) => {
 
 export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
+    await adopt($)
     if (e.usage) {
       const u = e.usage
-      const spent = u.input_tokens + u.output_tokens + u.cache_creation_input_tokens + u.cache_read_input_tokens
+      const spent = [u.input_tokens, u.output_tokens, u.cache_creation_input_tokens, u.cache_read_input_tokens].reduce((n, x) => n + (Number(x) > 0 ? Number(x) : 0), 0)
       const now = await $.clock.now()
       const hour = String(Math.floor(now / HOUR) * HOUR)
       const model = u.model || 'unknown'
@@ -96,6 +156,7 @@ export const register: Register = on => {
   })
 
   on('session.measure', async ($, e, next) => {
+    await adopt($)
     const five = e.rateLimits.find(r => r.kind === 'five_hour')
     const week = e.rateLimits.find(r => r.kind === 'seven_day')
     await update($, usage, cur => ({

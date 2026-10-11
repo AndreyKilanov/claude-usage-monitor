@@ -97,6 +97,7 @@ cd claude-usage-monitor
 ./scripts/build-vsix.sh        # writes dist/claude-usage-monitor-<version>.vsix
 claude plugin validate plugin   # plugin checks
 claude plugin test plugin       # plugin tests
+node --test extension/test/extension.test.js   # extension tests
 ```
 
 No dependencies and no build step: the extension is a single JavaScript file.

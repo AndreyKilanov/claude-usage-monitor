@@ -1,4 +1,6 @@
 export type Usage = {
+  /** id of the session these counters belong to */
+  sid: string | null
   fiveHour: number | null
   fiveHourResetsAt: string | null
   sevenDay: number | null
