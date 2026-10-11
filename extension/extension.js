@@ -24,6 +24,7 @@ const STR = {
     noFiles: 'Папка есть, но в ней пока пусто. Отправьте сообщение в новой сессии Claude (плагин должен быть установлен и включён).',
     noReadable: 'Файлы в папке есть, но прочитать их не удалось: они повреждены или нет прав доступа.',
     lookingIn: 'Папка с данными:',
+    openRepo: 'Страница проекта на GitHub',
     scopeAll: 'Все проекты', scopeHint: 'Только токены этого проекта; лимиты общие для аккаунта',
     verExt: 'Расширение', verPlugin: 'плагин', verOld: 'старый (до 0.6.3)',
     pluginOld: (v, min) => `Плагин на этом компьютере устарел (${v}, нужен не ниже ${min}). Обновите его: меню → «Установить плагин usage-monitor», затем начните новую сессию Claude.`,
@@ -73,6 +74,7 @@ const STR = {
     noFiles: 'The folder exists but has no session files yet. Send a message in a NEW Claude session (the plugin must be installed and enabled).',
     noReadable: 'Session files exist but could not be read (damaged, or no permission).',
     lookingIn: 'Looking for data in:',
+    openRepo: 'Project page on GitHub',
     scopeAll: 'All projects', scopeHint: "Only this project's tokens; limits are shared by the whole account",
     verExt: 'Extension', verPlugin: 'plugin', verOld: 'old (before 0.6.3)',
     pluginOld: (v, min) => `The plugin on this computer is outdated (${v}, ${min} or newer is needed). Update it: menu → "Install the usage-monitor plugin", then start a new Claude session.`,
@@ -126,6 +128,17 @@ const pickLocale = () => {
 
 const num = v => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v))
 const MIN_PLUGIN = '0.6.3'
+
+// The project page. Read from package.json and checked, so the address the "v0.6.x" link opens is always ours.
+const REPO_FALLBACK = 'https://github.com/AndreyKilanov/claude-usage-monitor'
+const repoUrl = () => {
+  try {
+    const u = String(require('./package.json').repository.url || '').replace(/\.git$/, '')
+    return /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/.test(u) ? u : REPO_FALLBACK
+  } catch {
+    return REPO_FALLBACK
+  }
+}
 
 // "0.10.2" > "0.9.0": compare numerically, part by part; anything unreadable counts as 0
 const cmpVer = (a, b) => {
@@ -586,19 +599,23 @@ function activate(context) {
       : worst >= cfg('warnAt', 80) ? new vscode.ThemeColor('statusBarItem.warningBackground')
       : undefined
 
-    const lines = [`### ${L.title}`]
+    // The header row of the same table holds the title on the left and the version, a link to the project, in the
+    // right-hand corner: above the limit bars, so everything lines up in the same columns.
+    const vi = versionInfo(t)
+    const hover = `${L.verExt} ${vi.ext} · ${L.verPlugin} ${vi.plugin || (vi.old ? L.verOld : '—')}`.replace(/"/g, "'")
+    const verLink = `[_v${vi.ext}_](${repoUrl()} "${hover}")`
+    const lines = []
     // one table row per window, so names, bars, percents and resets line up in columns
     const rows = windows(u).map(w => {
       const r = left(w.resetsAt)
       return `| **${nameOf(w.kind)}** | \`${bar(w.p)}\` | **${pct(w.p)}** | ${r ? `${L.resets} ${r}` : ''} |`
     })
-    lines.push(['| | | | |', '|:--|:--|--:|:--|', ...rows].join('\n'))
+    lines.push([`| **${L.title}** | | | ${verLink} |`, '|:--|:--|--:|--:|', ...rows].join('\n'))
     if (eta) lines.push(`$(flame) ${L.forecast} **${fmtMs(eta)}**`)
     lines.push('---')
     lines.push(`${L.todayLine}: **${groupNum(today.total)}** ${L.tokens} · ${L.sessions}: ${t.sessionsToday}`)
     lines.push(u.usd != null ? `${L.curSession}: ${tok(u.tokens)} ${L.tokens} · $${Number(u.usd).toFixed(2)}` : `${L.curSession}: ${tok(u.tokens)} ${L.tokens}`)
-    const vi = versionInfo(t)
-    lines.push(`_${L.verExt} ${vi.ext} · ${L.verPlugin} ${vi.plugin || (vi.old ? L.verOld : '—')}_`)
+    if (vi.old) lines.push(`⚠ ${vi.oldText}`) // only when the plugin on this computer is out of date
     item.tooltip = new vscode.MarkdownString(lines.join('\n\n'), true)
     item.show()
     pushPanel()
@@ -630,7 +647,7 @@ function activate(context) {
         title: L.title, updated: L.updated, resetsCap: L.resetsCap, noReset: L.noReset, forecast: L.forecast, note: L.note,
         tabToday: L.tabToday, tab7: L.tab7, tab30: L.tab30, byModel: L.byModel, byProject: L.byProject, noBreakdown: L.noBreakdown,
         kindsTitle: L.kindsTitle, kindCacheRead: L.kindCacheRead, kindCacheWrite: L.kindCacheWrite, kindInput: L.kindInput, kindOutput: L.kindOutput, kindUnknown: L.kindUnknown, kindsNote: L.kindsNote, kindsOutdated: L.kindsOutdated,
-        scopeAll: L.scopeAll, scopeHint: L.scopeHint, verExt: L.verExt, verPlugin: L.verPlugin, verOld: L.verOld,
+        openRepo: L.openRepo, scopeAll: L.scopeAll, scopeHint: L.scopeHint, verExt: L.verExt, verPlugin: L.verPlugin, verOld: L.verOld,
         tokens: L.tokens, sessions: L.sessions, devices: L.devices, curSession: L.curSession, exportCsv: L.exportCsv, total: L.total, perDay: L.perDay,
       },
       locale: L.locale,
@@ -666,6 +683,7 @@ function activate(context) {
     panel.webview.onDidReceiveMessage(m => {
       if (m && m.type === 'ready') pushPanel()
       if (m && m.type === 'csv') vscode.commands.executeCommand('claudeUsage.exportCsv')
+      if (m && m.type === 'repo') vscode.env.openExternal(vscode.Uri.parse(repoUrl())) // always our own address, whatever the page sent
     }, null, context.subscriptions)
   }
 
@@ -863,7 +881,8 @@ function panelHtml() {
   * { box-sizing: border-box; }
   body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 0 24px 32px; max-width: 720px; margin: 0 auto; }
   .hero { position: relative; margin: 0 -24px 22px; padding: 22px 24px 18px; background: linear-gradient(135deg, rgba(255,181,71,.16), rgba(64,224,208,.10) 60%, transparent); border-bottom: 1px solid var(--line); }
-  .ver { position: absolute; top: 10px; right: 24px; font-size: 10px; letter-spacing: .03em; color: var(--muted); opacity: .75; font-variant-numeric: tabular-nums; cursor: default; }
+  .ver { position: absolute; top: 10px; right: 24px; font-size: 10px; letter-spacing: .03em; color: var(--muted); opacity: .75; font-variant-numeric: tabular-nums; cursor: pointer; text-decoration: none; }
+  .ver:hover { text-decoration: underline; opacity: 1; color: var(--accent); }
   .hero h1 { font-size: 20px; font-weight: 650; margin: 0 0 2px; letter-spacing: -.01em; }
   .muted { color: var(--muted); font-size: 12px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 14px; }
@@ -909,7 +928,7 @@ function panelHtml() {
   .btn:hover { border-color: var(--accent); }
   .hidden { display: none; }
 </style></head><body>
-  <div class="hero"><h1 id="title"></h1><div class="muted" id="updated"></div><div class="ver" id="ver"></div></div>
+  <div class="hero"><h1 id="title"></h1><div class="muted" id="updated"></div><a class="ver" id="ver" href="#"></a></div>
   <div class="warnbox hidden" id="pbanner" style="margin:0 0 14px"></div>
   <div class="grid" id="rings"></div>
   <div class="forecast hidden" id="forecast"></div>
@@ -1036,7 +1055,7 @@ function panelHtml() {
     $('pbanner').classList.toggle('hidden', !v.old)
     $('pbanner').textContent = v.old ? v.oldText : ''
     $('ver').textContent = 'v' + v.ext // small, top right; hovering names both versions
-    $('ver').title = data.L.verExt + ' ' + v.ext + ' · ' + data.L.verPlugin + ' ' + (v.plugin || (v.old ? data.L.verOld : '—'))
+    $('ver').title = data.L.openRepo + ' — ' + data.L.verExt + ' ' + v.ext + ' · ' + data.L.verPlugin + ' ' + (v.plugin || (v.old ? data.L.verOld : '—'))
     $('mlabel').textContent = data.L.byModel; $('plabel2').textContent = data.L.byProject
     rows($('models'), p.models, p.total); rows($('projects'), p.projects, p.total)
     $('note').textContent = data.L.note
@@ -1044,6 +1063,7 @@ function panelHtml() {
   }
 
   $('csv').onclick = () => vscode.postMessage({ type: 'csv' })
+  $('ver').onclick = e => { e.preventDefault(); vscode.postMessage({ type: 'repo' }) }
   window.addEventListener('message', e => { if (e.data && e.data.type === 'data') { data = e.data.data; draw() } })
   vscode.postMessage({ type: 'ready' })
 </script></body></html>`
@@ -1051,4 +1071,4 @@ function panelHtml() {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, __test: { cmpVer, fileProject, folderName, STR, findClaudeBinaries, noDataHelp, prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }
+module.exports = { activate, deactivate, __test: { repoUrl, cmpVer, fileProject, folderName, STR, findClaudeBinaries, noDataHelp, prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }

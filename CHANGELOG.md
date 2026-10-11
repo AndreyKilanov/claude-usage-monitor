@@ -3,10 +3,11 @@
 ## 0.6.3
 
 - **"Only this project" switch** in the panel: *All projects* / *📁 the open folder*. It narrows tokens, charts, the token split and models to the sessions of the project open in this editor window (matched by folder name, case-insensitive; older data falls back to the folder with most of the session's tokens). Limits stay account-wide, and the status bar keeps counting every project.
-- **Version in the panel**, small, in the top right corner (`v0.6.3`). Hover it for the extension and plugin versions. There is no update check: the extension still makes no network requests.
-- **Outdated-plugin banner.** The plugin now writes its own version into every data file; if the plugin on this computer is older than 0.6.3 or reports no version, the panel says so and points to *menu → Install the usage-monitor plugin*. The tooltip shows both versions too.
+- **Version, as a link to the project page on GitHub.** Small, in the top right corner of the panel and in the right-hand corner of the status bar tooltip's header row, above the limit bars (hover it for the extension and plugin versions). The address is fixed in the extension: nothing the page sends can change where it goes. There is no update check: the extension still makes no network requests.
+- **Outdated-plugin banner.** The plugin now writes its own version into every data file; if the plugin on this computer is older than 0.6.3 or reports no version, the panel says so and points to *menu → Install the usage-monitor plugin*. An outdated plugin is also flagged with one line at the end of the tooltip.
 - The plugin also records the project folder name of each session.
-- Tests: 18 plugin tests, 50 extension tests.
+- The tooltip's reset column is right-aligned to sit under the version.
+- Tests: 18 plugin tests, 55 extension tests.
 
 **Update the plugin on every machine** (menu → *Install the usage-monitor plugin*), then start a new Claude session.
 

@@ -27,7 +27,7 @@ function setup({ lang = 'en', config = {}, store = {} } = {}) {
     window: {
       createStatusBarItem: () => { const i = { show() {}, dispose() {} }; items.push(i); return i },
       createWebviewPanel: () => {
-        const p = { webview: { postMessage: m => { log.posted.push(m) }, onDidReceiveMessage() {}, set html(v) { p.html = v } }, onDidDispose() {}, reveal() {} }
+        const p = { webview: { postMessage: m => { log.posted.push(m) }, onDidReceiveMessage(cb) { log.onMessage = cb }, set html(v) { p.html = v } }, onDidDispose() {}, reveal() {} }
         log.panels.push(p)
         return p
       },
@@ -888,12 +888,19 @@ test('versions: shown in the panel data and the tooltip, in both languages, and 
   const v = payloadOf(t).versions
   assert.equal(v.ext, ownVersion)
   assert.equal(v.plugin, '0.6.3')
-  assert.ok(t.tooltip().includes(`Extension ${ownVersion} · plugin 0.6.3`), t.tooltip())
+  const tip = t.tooltip()
+  const link = `[_v${ownVersion}_](https://github.com/AndreyKilanov/claude-usage-monitor "Extension ${ownVersion} · plugin 0.6.3")`
+  const headerRow = tip.split('\n').find(l => l.startsWith('| **Claude'))
+  assert.ok(headerRow && headerRow.endsWith(`${link} |`), 'the version link closes the header row, top right: ' + headerRow)
+  assert.ok(tip.indexOf(link) < tip.indexOf('5-hour window'), 'above the limit bars, not under them')
+  assert.ok(!tip.includes('### '), 'the title now lives in the same table row')
+  assert.ok(!/plugin 0\.6\.3_?\s*$/.test(tip.trimEnd()), 'no version line at the bottom')
 
   const ru = setup({ lang: 'ru' })
   ru.write('a.json', day('p', 10)) // no version: an old plugin
   ru.start()
-  assert.ok(ru.tooltip().includes(`Расширение ${ownVersion} · плагин старый (до 0.6.3)`), ru.tooltip())
+  assert.ok(ru.tooltip().includes(`[_v${ownVersion}_](https://github.com/AndreyKilanov/claude-usage-monitor "Расширение ${ownVersion} · плагин старый (до 0.6.3)")`), ru.tooltip())
+  assert.match(ru.tooltip().trimEnd().split('\n').pop(), /^⚠ Плагин на этом компьютере устарел/, 'an old plugin is flagged at the end, once')
   assert.match(payloadOf(ru).versions.oldText, /Плагин на этом компьютере устарел/)
 })
 
@@ -919,7 +926,7 @@ test('the version sits small in the top right of the panel: plain "v<number>", b
   t.write('a.json', day('p', 10, { v: '0.6.3' }))
   t.start()
   const html = t.log.panels.length ? t.log.panels[0].html : (t.cmds['claudeUsage.open'](), t.log.panels[0].html)
-  assert.match(html, /<div class="ver" id="ver"><\/div>/)
+  assert.match(html, /<a class="ver" id="ver" href="#"><\/a>/)
   assert.match(html, /\.ver \{ position: absolute; top: 10px; right: 24px; font-size: 10px/)
   assert.match(html, /\$\('ver'\)\.textContent = 'v' \+ v\.ext/)
   assert.ok(!html.includes('id="versions"'), 'the old footer line is gone')
@@ -928,4 +935,68 @@ test('the version sits small in the top right of the panel: plain "v<number>", b
   const src = fs.readFileSync(path.join(__dirname, '..', 'extension.js'), 'utf8')
   assert.ok(!/require\(['"](https?|net|dgram|tls|http2)['"]\)/.test(src), 'no network modules anywhere in the extension')
   assert.ok(!/\bfetch\(|XMLHttpRequest|WebSocket/.test(src.replace(/\/\/.*$/gm, '')), 'no fetch-style calls')
+})
+
+test('the version is a link to the repository: one fixed address, whatever the page sends', () => {
+  const t = setup()
+  t.write('a.json', day('p', 10, { v: '0.6.3' }))
+  t.start()
+  t.cmds['claudeUsage.open']()
+  t.refresh()
+  assert.equal(typeof t.log.onMessage, 'function', 'the panel listens to its page')
+  t.log.onMessage({ type: 'repo' })
+  assert.equal(t.log.opened, 'https://github.com/AndreyKilanov/claude-usage-monitor')
+
+  t.log.opened = null
+  t.log.onMessage({ type: 'repo', url: 'https://evil.example/phish' })
+  assert.equal(t.log.opened, 'https://github.com/AndreyKilanov/claude-usage-monitor', 'an address in the message is never used')
+
+  t.log.opened = null
+  t.log.onMessage({ type: 'something-else', url: 'https://evil.example' })
+  t.log.onMessage(null)
+  t.log.onMessage('repo')
+  assert.equal(t.log.opened, null, 'other or malformed messages do nothing')
+
+  const html = t.log.panels[0].html
+  assert.match(html, /\$\('ver'\)\.onclick = e => \{ e\.preventDefault\(\); vscode\.postMessage\(\{ type: 'repo' \}\) \}/)
+  assert.ok(!html.includes('github.com'), 'the page itself holds no address to navigate to')
+  assert.match(html, /\.ver:hover \{ text-decoration: underline/)
+})
+
+test('repository address: from package.json, checked, and never anything but github.com', () => {
+  const { repoUrl } = setup().ext.__test
+  assert.equal(repoUrl(), 'https://github.com/AndreyKilanov/claude-usage-monitor')
+  assert.equal(require('../package.json').repository.url, 'https://github.com/AndreyKilanov/claude-usage-monitor.git')
+})
+
+test('the version label is in the Russian panel too, with a Russian hint', () => {
+  const t = setup({ lang: 'ru' })
+  t.write('a.json', day('p', 10, { v: '0.6.3' }))
+  t.start()
+  const data = payloadOf(t)
+  assert.equal(data.L.openRepo, 'Страница проекта на GitHub')
+  const en = setup()
+  en.write('a.json', day('p', 10, { v: '0.6.3' }))
+  en.start()
+  assert.equal(payloadOf(en).L.openRepo, 'Project page on GitHub')
+})
+
+test('tooltip: the header row is a real table row that lines up with the limit rows, in both languages', () => {
+  for (const lang of ['en', 'ru']) {
+    const t = setup({ lang })
+    t.write('a.json', day('p', 10, { v: '0.6.3', limits: [{ kind: 'five_hour', percentUsed: 38, resetsAt: iso(2 * H) }, { kind: 'seven_day', percentUsed: 5, resetsAt: iso(80 * H) }] }))
+    t.start()
+    const table = t.tooltip().split('\n').filter(l => l.startsWith('|'))
+    assert.equal(table.length, 4, 'header, alignment, two limit rows')
+    const cols = row => row.split(/(?<!\\)\|/).length - 2 // cells in a row, ignoring the outer pipes
+    assert.deepEqual(table.map(cols), [4, 4, 4, 4], `${lang}: every row has the same four cells`)
+    assert.match(table[1], /^\|:--\|:--\|--:\|--:\|$/)
+  }
+})
+
+test('tooltip: an up-to-date plugin leaves no warning line', () => {
+  const t = setup()
+  t.write('a.json', day('p', 10, { v: '0.6.3' }))
+  t.start()
+  assert.ok(!t.tooltip().includes('⚠'))
 })
