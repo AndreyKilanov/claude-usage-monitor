@@ -35,6 +35,7 @@ function setup({ lang = 'en', config = {}, store = {} } = {}) {
       showErrorMessage: m => log.error.push(m),
       showInformationMessage: m => log.info.push(m),
       showSaveDialog: async () => (log.saved ? { fsPath: log.saved } : undefined),
+      showQuickPick: async items => (log.pick === null ? undefined : items.find(i => i.id === (log.pick || 'model'))),
     },
     StatusBarAlignment: { Right: 1 },
     ThemeColor: class { constructor(id) { this.id = id } },
@@ -241,27 +242,103 @@ test('breakdown: several dated ids of one model merge; the long tail folds into 
   t.stop()
 })
 
-test('CSV: a folder named like a formula is neutralised, commas and quotes survive', async () => {
-  const t = setup()
-  const detail = { [hourNow()]: { m: { 'claude-opus-5-5': 10 }, p: { '=HYPERLINK("x")': 5, 'a,b': 5 } } }
-  t.write('s.json', session({ buckets: { [hourNow()]: 10 }, detail }))
-  t.start()
-  t.log.saved = path.join(t.home, 'out.csv')
+const DAYMS = 86400_000
+const dayStr = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+async function exportAs(t, pick) {
+  t.log.pick = pick
+  t.log.saved = path.join(t.home, `out-${pick}.csv`)
   await t.cmds['claudeUsage.exportCsv']()
-  const csv = fs.readFileSync(t.log.saved, 'utf8')
-  assert.match(csv, /^date,dimension,name,tokens\n/)
-  assert.ok(csv.includes(`"'=HYPERLINK(""x"")"`), csv)
-  assert.ok(csv.includes('"a,b"'))
-  assert.ok(!/(^|,)=/m.test(csv), 'no cell may start with =')
+  return fs.readFileSync(t.log.saved, 'utf8')
+}
+// two days of data: yesterday has a model/project split, today only a bare total (an older file without detail)
+function twoDays(t) {
+  const y = hourNow() - 26 * H
+  const detail = { [y]: { m: { 'claude-opus-5-5-20260101': 600, 'claude-haiku-5-5': 400 }, p: { web: 700, api: 300 } } }
+  t.write('s.json', session({ buckets: { [y]: 1000, [hourNow()]: 250 }, detail }))
+  return y
+}
+
+test('CSV by day and model: a readable table with a total row, BOM and CRLF', async () => {
+  const t = setup()
+  const y = twoDays(t)
+  t.start()
+  const csv = await exportAs(t, 'model')
+  assert.ok(csv.startsWith('\uFEFF'), 'BOM so Excel reads UTF-8')
+  const rows = csv.slice(1).trim().split('\r\n').map(r => r.split(','))
+  assert.deepEqual(rows[0], ['Date', 'Total', 'Opus 5.5', 'Haiku 5.5', 'Other'])
+  assert.deepEqual(rows[1], [dayStr(y), '1000', '600', '400', '0'])
+  assert.deepEqual(rows[2], [dayStr(Date.now()), '250', '0', '0', '250'], 'tokens without a model split land in Other')
+  assert.deepEqual(rows[3], ['Total', '1250', '600', '400', '250'])
+  assert.equal(rows.length, 4)
   t.stop()
 })
 
-test('CSV: cancelling the dialog, and an unwritable path, are handled', async () => {
+test('CSV by day and project, and the raw rows format', async () => {
+  const t = setup()
+  twoDays(t)
+  t.start()
+  const byProject = (await exportAs(t, 'project')).slice(1).trim().split('\r\n').map(r => r.split(','))
+  assert.deepEqual(byProject[0], ['Date', 'Total', 'web', 'api', 'Other'])
+  const raw = (await exportAs(t, 'long')).slice(1).trim().split('\r\n')
+  assert.equal(raw[0], 'Date,Dimension,Name,Tokens')
+  assert.ok(raw.includes(`${dayStr(hourNow() - 26 * H)},model,Opus 5.5,600`))
+  assert.ok(raw.includes(`${dayStr(hourNow() - 26 * H)},total,,1000`))
+  t.stop()
+})
+
+test('CSV in Russian: Cyrillic headers and ";" so Excel splits the columns', async () => {
+  const t = setup({ lang: 'ru' })
+  twoDays(t)
+  t.start()
+  const csv = await exportAs(t, 'model')
+  const head = csv.slice(1).split('\r\n')[0]
+  assert.equal(head, 'Дата;Всего;Opus 5.5;Haiku 5.5;Прочее')
+  t.stop()
+  const t2 = setup({ lang: 'ru', config: { csvDelimiter: ',' } })
+  twoDays(t2)
+  t2.start()
+  assert.equal((await exportAs(t2, 'model')).slice(1).split('\r\n')[0], 'Дата,Всего,Opus 5.5,Haiku 5.5,Прочее')
+  t2.stop()
+})
+
+test('CSV: more than eight models fold into Other, nothing is lost', async () => {
+  const t = setup()
+  const buckets = {}
+  const detail = {}
+  for (let i = 0; i < 12; i++) { buckets[hourNow() - i * H] = 100 * (i + 1); detail[hourNow() - i * H] = { m: { [`claude-model-${i}-0`]: 100 * (i + 1) }, p: {} } }
+  t.write('s.json', session({ buckets, detail }))
+  t.start()
+  const rows = (await exportAs(t, 'model')).slice(1).trim().split('\r\n').map(r => r.split(','))
+  assert.equal(rows[0].length, 2 + 8 + 1)
+  const total = rows.at(-1)
+  assert.equal(Number(total[1]), 7800)
+  assert.equal(total.slice(2).reduce((s, x) => s + Number(x), 0), 7800)
+  t.stop()
+})
+
+test('CSV: names like a formula are neutralised, separators and quotes survive', async () => {
+  const t = setup()
+  const detail = { [hourNow()]: { m: { 'claude-opus-5-5': 10 }, p: { '=HYPERLINK("x")': 5, 'a,b': 3, '@cmd': 2 } } }
+  t.write('s.json', session({ buckets: { [hourNow()]: 10 }, detail }))
+  t.start()
+  for (const pick of ['project', 'long']) {
+    const csv = await exportAs(t, pick)
+    assert.ok(csv.includes(`"'=HYPERLINK(""x"")"`), csv)
+    assert.ok(csv.includes('"a,b"'))
+    assert.ok(csv.includes("'@cmd"))
+    assert.ok(!/(^|,)[=@]/m.test(csv.slice(1)), 'no cell may start with = or @')
+  }
+  t.stop()
+})
+
+test('CSV: cancelling either dialog, an unwritable path and no data are handled', async () => {
   const t = setup()
   t.write('s.json', session({ buckets: { [hourNow()]: 10 } }))
   t.start()
-  t.log.saved = null
-  await t.cmds['claudeUsage.exportCsv']() // cancelled: nothing happens
+  t.log.pick = null
+  await t.cmds['claudeUsage.exportCsv']() // cancelled at the picker
+  t.log.pick = 'model'; t.log.saved = null
+  await t.cmds['claudeUsage.exportCsv']() // cancelled at the save dialog
   t.log.saved = path.join(t.home, 'no', 'such', 'dir', 'x.csv')
   await t.cmds['claudeUsage.exportCsv']()
   assert.equal(t.log.error.length, 1)

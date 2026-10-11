@@ -2,7 +2,7 @@
   "name": "claude-usage-monitor",
   "displayName": "Claude Usage Monitor — Limits & Tokens",
   "description": "Claude Code 5-hour and weekly limits, tokens by day, model and project, alerts and a pace forecast in the status bar. Unofficial. Русский / English.",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "publisher": "andreykilanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -119,6 +119,17 @@
           "type": "string",
           "default": "",
           "description": "Optional folder shared between your devices (iCloud Drive, Dropbox, Syncthing…). Each device copies its usage files there and adds up the others, so \"today\" covers all devices. Leave empty to stay on this machine."
+        },
+        "claudeUsage.csvDelimiter": {
+          "type": "string",
+          "enum": [
+            "auto",
+            ",",
+            ";",
+            "tab"
+          ],
+          "default": "auto",
+          "description": "CSV column separator. auto uses ';' for Russian (what Excel expects there) and ',' otherwise."
         }
       }
     }

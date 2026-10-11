@@ -25,7 +25,7 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 | **Forecast** | "at this pace the 5-hour limit runs out in 23 min" — only when it would happen before the reset |
 | **All sessions** | every window and session on the machine is added up, so "today" is the real total |
 | **Many devices** | optional shared folder (iCloud Drive, Dropbox, Syncthing…) adds up your other machines |
-| **CSV export** | `date, dimension, name, tokens` for spreadsheets |
+| **CSV export** | by day and model, by day and project, or raw rows; opens cleanly in Excel / Numbers |
 | **Languages** | Russian and English, picked from the editor language |
 
 <p align="center"><img src="assets/panel-light.png" width="640" alt="Usage panel, light theme, 30 days"></p>
@@ -77,6 +77,7 @@ Send any message. The numbers appear after the first reply (sessions started bef
 | `claudeUsage.notifications` | `true` | notify when a threshold is crossed |
 | `claudeUsage.notifyOnReset` | `true` | notify when a limit that was high resets |
 | `claudeUsage.syncFolder` | empty | shared folder to add up several devices |
+| `claudeUsage.csvDelimiter` | `auto` | `auto` (`;` for Russian, `,` otherwise), `,`, `;` or `tab` |
 | `claudeUsage.refreshIntervalSeconds` | `30` | how often the bar redraws (files are also watched every 3 s) |
 
 Commands (Command Palette): **Claude Usage: Open Panel**, **Refresh**, **Export CSV**.
@@ -125,7 +126,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 | **Прогноз** | «при таком темпе лимит 5 часов закончится через 23 мин» — только если это случится до сброса |
 | **Все сессии** | все окна и сессии на машине суммируются, «сегодня» — реальный итог |
 | **Несколько устройств** | необязательная общая папка (iCloud Drive, Dropbox, Syncthing…) суммирует ваши машины |
-| **Экспорт CSV** | `date, dimension, name, tokens` для таблиц |
+| **Экспорт CSV** | по дням и моделям, по дням и проектам или сырые строки; корректно открывается в Excel / Numbers |
 | **Языки** | русский и английский по языку редактора |
 
 ## Как это работает

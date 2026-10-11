@@ -33,6 +33,12 @@ const STR = {
     tabToday: 'Сегодня', tab7: '7 дней', tab30: '30 дней',
     byModel: 'По моделям', byProject: 'По проектам', noBreakdown: 'Пока нет данных', perDay: 'в день', total: 'Всего',
     devices: 'устройств', exportCsv: 'Экспорт CSV', csvDone: 'Сохранено', csvNone: 'Нет данных для экспорта',
+    csvPick: 'Какую таблицу сохранить?',
+    csvByModel: 'По дням и моделям', csvByModelHint: 'Дата, всего и колонка на каждую модель — удобно открыть в Excel или Numbers',
+    csvByProject: 'По дням и проектам', csvByProjectHint: 'Дата, всего и колонка на каждый проект',
+    csvLong: 'Сырые данные', csvLongHint: 'Одна строка на срез (для сводных таблиц)',
+    csvDate: 'Дата', csvTotal: 'Всего', csvOther: 'Прочее', csvDimension: 'Срез', csvName: 'Название', csvTokens: 'Токены',
+    csvDimTotal: 'всего', csvDimModel: 'модель', csvDimProject: 'проект',
     syncOn: 'Синхронизация включена', min: 'мин', h: 'ч', d: 'д',
     days: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'], locale: 'ru-RU',
   },
@@ -53,6 +59,12 @@ const STR = {
     tabToday: 'Today', tab7: '7 days', tab30: '30 days',
     byModel: 'By model', byProject: 'By project', noBreakdown: 'No data yet', perDay: 'per day', total: 'Total',
     devices: 'devices', exportCsv: 'Export CSV', csvDone: 'Saved', csvNone: 'Nothing to export',
+    csvPick: 'Which table to save?',
+    csvByModel: 'By day and model', csvByModelHint: 'Date, total and one column per model — opens cleanly in Excel or Numbers',
+    csvByProject: 'By day and project', csvByProjectHint: 'Date, total and one column per project',
+    csvLong: 'Raw rows', csvLongHint: 'One row per slice (for pivot tables)',
+    csvDate: 'Date', csvTotal: 'Total', csvOther: 'Other', csvDimension: 'Dimension', csvName: 'Name', csvTokens: 'Tokens',
+    csvDimTotal: 'total', csvDimModel: 'model', csvDimProject: 'project',
     syncOn: 'Sync is on', min: 'min', h: 'h', d: 'd',
     days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], locale: 'en-US',
   },
@@ -66,6 +78,14 @@ const pickLocale = () => {
 }
 
 const num = v => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v))
+// Excel in a Russian locale expects ';', most other tools ','
+const csvDelimiter = () => {
+  const v = cfg('csvDelimiter', 'auto')
+  if (v === 'tab') return '\t'
+  if (v === ',' || v === ';') return v
+  return L === STR.ru ? ';' : ','
+}
+
 const pct = p => (num(p) === null ? '—' : `${Math.round(num(p))}%`)
 const tok = n => (!Number.isFinite(Number(n)) ? '0' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(Math.round(n || 0)))
 const fmtMs = ms => {
@@ -447,31 +467,72 @@ function activate(context) {
     const all = scan(machineId)
     const t = readTotals(all)
     if (!t.raw.length) return vscode.window.showInformationMessage(L.csvNone)
-    const byDay = {}
+
+    const pick = await vscode.window.showQuickPick(
+      [
+        { label: L.csvByModel, detail: L.csvByModelHint, id: 'model' },
+        { label: L.csvByProject, detail: L.csvByProjectHint, id: 'project' },
+        { label: L.csvLong, detail: L.csvLongHint, id: 'long' },
+      ],
+      { placeHolder: L.csvPick },
+    )
+    if (!pick) return
+
+    const delim = csvDelimiter()
     const day = ms => {
       const d = new Date(ms)
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     }
-    const bump = (date, dim, name, v) => {
-      const k = `${date}\u0000${dim}\u0000${name}`
-      byDay[k] = (byDay[k] || 0) + v
+    // a cell that starts with = + - @ would run as a formula in a spreadsheet: a project folder named "=1+1" must not
+    const q = v => {
+      const s = String(v)
+      const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s
+      return safe.includes(delim) || /["\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
     }
+    const line = cells => cells.map(q).join(delim)
+
+    const days = {}
     for (const r of t.raw) {
-      const date = day(r.t)
-      bump(date, 'total', '', r.v)
-      for (const [m, n] of Object.entries(r.m || {})) bump(date, 'model', prettyModel(m), n)
-      for (const [p, n] of Object.entries(r.p || {})) bump(date, 'project', p, n)
+      const d = (days[day(r.t)] = days[day(r.t)] || { total: 0, model: {}, project: {} })
+      d.total += r.v
+      for (const [m, n] of Object.entries(r.m || {})) d.model[prettyModel(m)] = (d.model[prettyModel(m)] || 0) + n
+      for (const [p, n] of Object.entries(r.p || {})) d.project[p] = (d.project[p] || 0) + n
     }
-    const q = s => {
-      const t = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s // a project folder named "=1+1" must not run as a formula
-      return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t
+    const dates = Object.keys(days).sort()
+
+    let rows
+    if (pick.id === 'long') {
+      const dim = { total: L.csvDimTotal, model: L.csvDimModel, project: L.csvDimProject }
+      rows = [[L.csvDate, L.csvDimension, L.csvName, L.csvTokens]]
+      for (const date of dates) {
+        rows.push([date, dim.total, '', days[date].total])
+        for (const [m, n] of Object.entries(days[date].model).sort((a, b) => b[1] - a[1])) rows.push([date, dim.model, m, n])
+        for (const [p, n] of Object.entries(days[date].project).sort((a, b) => b[1] - a[1])) rows.push([date, dim.project, p, n])
+      }
+    } else {
+      // one column per model / project (the biggest eight), the rest and anything unattributed in "Other"
+      const sums = {}
+      for (const date of dates) for (const [k, n] of Object.entries(days[date][pick.id])) sums[k] = (sums[k] || 0) + n
+      const cols = Object.entries(sums).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k]) => k)
+      rows = [[L.csvDate, L.csvTotal, ...cols, L.csvOther]]
+      const totals = new Array(cols.length).fill(0)
+      let grand = 0
+      let otherAll = 0
+      for (const date of dates) {
+        const d = days[date]
+        const vals = cols.map(c => d[pick.id][c] || 0)
+        const other = Math.max(0, d.total - vals.reduce((x, y) => x + y, 0))
+        rows.push([date, d.total, ...vals, other])
+        vals.forEach((v, i) => (totals[i] += v))
+        grand += d.total
+        otherAll += other
+      }
+      rows.push([L.csvTotal, grand, ...totals, otherAll])
     }
-    const rows = Object.entries(byDay)
-      .map(([k, v]) => k.split('\u0000').concat(String(v)))
-      .sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]) || b[3] - a[3])
-    const csv = ['date,dimension,name,tokens', ...rows.map(r => r.map(q).join(','))].join('\n') + '\n'
+
+    const csv = '\uFEFF' + rows.map(line).join('\r\n') + '\r\n' // BOM: Excel reads UTF-8 (Cyrillic) correctly with it
     const uri = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file(path.join(os.homedir(), `claude-usage-${day(Date.now())}.csv`)),
+      defaultUri: vscode.Uri.file(path.join(os.homedir(), `claude-usage-${pick.id}-${day(Date.now())}.csv`)),
       filters: { CSV: ['csv'] },
     })
     if (!uri) return

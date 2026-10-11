@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2
+
+- CSV export redone for readability: pick **by day and model** (date, total, one column per model, a total row), **by day and project**, or the raw rows. Tokens that have no model / project split go to "Other".
+- Russian Excel opens it correctly: `;` as the separator (setting `claudeUsage.csvDelimiter`, `auto` by default), a UTF-8 BOM, localized headers, CRLF line ends.
+- Tests: 23 extension tests.
+
 ## 0.5.1
 
 Robustness pass, found by testing the edge cases.
