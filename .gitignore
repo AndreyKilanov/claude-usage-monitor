@@ -1,0 +1,7 @@
+.DS_Store
+dist/
+*.vsix
+node_modules/
+*.tmp
+plugin/.claude-plugin/types/
+plugin/tsconfig.json

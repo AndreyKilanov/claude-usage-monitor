@@ -1,0 +1,13 @@
+{
+  "name": "usage-monitor",
+  "version": "0.5.0",
+  "description": "Claude Code usage monitor: 5-hour and weekly limits, tokens by model and project; feeds the Claude Usage Monitor editor extension (ru/en)",
+  "types": "./types/index.d.ts",
+  "license": "MIT",
+  "author": {
+    "name": "Andrey Kilanov",
+    "url": "https://github.com/AndreyKilanov"
+  },
+  "repository": "https://github.com/AndreyKilanov/claude-usage-monitor",
+  "homepage": "https://github.com/AndreyKilanov/claude-usage-monitor#readme"
+}
