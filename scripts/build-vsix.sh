@@ -45,5 +45,5 @@ XML
 
 OUT="$PWD/dist/$NAME-$VERSION.vsix"
 rm -f "$OUT"
-(cd "$STAGE" && zip -qr "$OUT" '[Content_Types].xml' extension.vsixmanifest extension)
+(cd "$STAGE" && zip -qrXD "$OUT" '[Content_Types].xml' extension.vsixmanifest extension)
 echo "built $OUT"
