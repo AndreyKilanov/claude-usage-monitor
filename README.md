@@ -15,10 +15,10 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 
 <p align="center"><a href="#русская-версия">Русская версия ↓</a></p>
 
-<p align="center"><img src="assets/statusbar.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
+<p align="center"><img src="assets/statusbar-7a7be200.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
 <p align="center"><sub>The status bar item and its hover tooltip.</sub></p>
 
-<p align="center"><img src="assets/panel-dark.png" width="640" alt="Usage panel, dark theme"></p>
+<p align="center"><img src="assets/panel-dark-7332ae68.png" width="640" alt="Usage panel, dark theme"></p>
 <p align="center"><sub>The panel (click the status bar item → menu → Open panel). It follows your editor theme.</sub></p>
 <p align="center"><sub>Mock-ups drawn from the extension's own output with sample data; your editor's fonts will differ a little.</sub></p>
 
@@ -39,7 +39,7 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 | **CSV export** | by day and model, by day and project, or raw rows; opens cleanly in Excel / Numbers |
 | **Languages** | Russian and English, picked from the editor language |
 
-<p align="center"><img src="assets/panel-light.png" width="640" alt="Usage panel, light theme, 30 days, only the open project"></p>
+<p align="center"><img src="assets/panel-light-ae1f2a5b.png" width="640" alt="Usage panel, light theme, 30 days, only the open project"></p>
 
 ## How it works
 
@@ -143,10 +143,10 @@ No dependencies and no build step: the extension is a single JavaScript file.
 
 > **Неофициальный проект.** Он не связан с Anthropic и не одобрен ею. Название «Claude» принадлежит правообладателю и указано лишь затем, чтобы было понятно, с чем работает инструмент.
 
-<p align="center"><img src="assets/statusbar-ru.png" width="700" alt="Элемент строки состояния и его подсказка: лимиты, токены, версия"></p>
+<p align="center"><img src="assets/statusbar-ru-a2b4d000.png" width="700" alt="Элемент строки состояния и его подсказка: лимиты, токены, версия"></p>
 <p align="center"><sub>Элемент строки состояния и подсказка при наведении.</sub></p>
 
-<p align="center"><img src="assets/panel-ru.png" width="640" alt="Панель расхода, тёмная тема"></p>
+<p align="center"><img src="assets/panel-ru-9e0fec06.png" width="640" alt="Панель расхода, тёмная тема"></p>
 <p align="center"><sub>Панель (клик по строке состояния → меню → «Открыть панель»). Скриншоты нарисованы по настоящему выводу расширения на тестовых данных; шрифты в вашем редакторе будут немного другими.</sub></p>
 
 ## Что умеет
