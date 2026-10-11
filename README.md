@@ -55,7 +55,9 @@ Why two parts: the Claude panel inside VS Code-style editors cannot draw custom 
 
 ### 1. The plugin (every machine)
 
-In a Claude Code terminal session:
+**Easiest:** install the extension first, then click the `Claude: no data` item in the status bar (or run **Claude Usage: Install the plugin** from the Command Palette). It finds Claude Code on your machine and, after you confirm, installs the plugin for you.
+
+Or by hand, in a Claude Code terminal session:
 
 ```
 /plugin install usage-monitor --marketplace AndreyKilanov/claude-usage-monitor
@@ -101,7 +103,7 @@ Commands (Command Palette): **Claude Usage: Open Panel**, **Refresh**, **Export 
 
 Hover it — the tooltip says which case you are in and which folder it checks (`~/.claude/usage-monitor/`).
 
-1. **Folder not found:** the plugin is not installed *on this machine*. Install it (see above) and start a new Claude session.
+1. **Folder not found:** the plugin is not installed *on this machine*. Click the status bar item to install it (or see above) and start a new Claude session.
 2. **Folder exists but is empty:** send a message in a **new** session. Sessions started before the plugin was installed or updated are not counted.
 3. **Remote / WSL / SSH windows:** the extension and the plugin must run on the same machine and read the same home folder.
 4. **Still nothing:** run `/plugin` in Claude Code and check that `usage-monitor` is enabled.
@@ -160,7 +162,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 
 ## Установка
 
-1. **Плагин** (на каждой машине), в терминальной сессии Claude Code:
+1. **Плагин** (на каждой машине). **Проще всего:** сначала поставьте расширение, затем нажмите на элемент `Claude: no data` в строке состояния (или команда **Claude Usage: Install the plugin** в палитре команд): расширение само найдёт Claude Code на машине и после вашего подтверждения установит плагин. Или вручную, в терминальной сессии Claude Code:
 
    ```
    /plugin install usage-monitor --marketplace AndreyKilanov/claude-usage-monitor
@@ -183,7 +185,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 
 Наведите курсор: подсказка скажет, какой из случаев ваш, и покажет папку, которую расширение проверяет (`~/.claude/usage-monitor/`).
 
-1. **Папка не найдена** — плагин не установлен *на этой машине*. Поставьте его и начните новую сессию Claude.
+1. **Папка не найдена** — плагин не установлен *на этой машине*. Нажмите на элемент в строке состояния, чтобы установить его (или см. выше), и начните новую сессию Claude.
 2. **Папка есть, но пустая** — отправьте сообщение в **новой** сессии. Сессии, начатые до установки или обновления плагина, не учитываются.
 3. **Удалённые окна (WSL / SSH):** расширение и плагин должны работать на одной машине и читать одну домашнюю папку.
 4. **Всё равно пусто** — выполните `/plugin` в Claude Code и проверьте, что `usage-monitor` включён.

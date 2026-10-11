@@ -18,7 +18,7 @@ function setup({ lang = 'en', config = {}, store = {} } = {}) {
   process.env.HOME = home
   const sessDir = path.join(home, '.claude', 'usage-monitor')
   fs.mkdirSync(sessDir, { recursive: true })
-  const log = { warn: [], error: [], info: [], panels: [], posted: [], saved: null }
+  const log = { warn: [], error: [], info: [], panels: [], posted: [], saved: null, calls: [], confirm: undefined, errorChoice: undefined, openPick: undefined, plan: () => ({}), extensions: [] }
   const items = []
   const cmds = {}
   const vs = {
@@ -31,8 +31,10 @@ function setup({ lang = 'en', config = {}, store = {} } = {}) {
         log.panels.push(p)
         return p
       },
-      showWarningMessage: m => log.warn.push(m),
-      showErrorMessage: m => log.error.push(m),
+      showWarningMessage: (m, ...rest) => { log.warn.push(m); return Promise.resolve(rest.length ? log.confirm : undefined) },
+      showErrorMessage: m => { log.error.push(m); return Promise.resolve(log.errorChoice) },
+      withProgress: (_o, fn) => fn(),
+      showOpenDialog: async () => (log.openPick ? [{ fsPath: log.openPick }] : undefined),
       showInformationMessage: m => log.info.push(m),
       showSaveDialog: async () => (log.saved ? { fsPath: log.saved } : undefined),
       showQuickPick: async items => (log.pick === null ? undefined : items.find(i => i.id === (log.pick || 'model'))),
@@ -42,10 +44,19 @@ function setup({ lang = 'en', config = {}, store = {} } = {}) {
     MarkdownString: class { constructor(v) { this.value = v } },
     commands: { registerCommand: (n, f) => { cmds[n] = f; return { dispose() {} } } },
     ViewColumn: { Beside: 2 },
+    ProgressLocation: { Notification: 15 },
+    extensions: { get all() { return log.extensions } },
     Uri: { file: p => ({ fsPath: p }) },
   }
   const orig = Module._load
-  Module._load = function (r, ...a) { return r === 'vscode' ? vs : orig.call(this, r, ...a) }
+  const fakeCp = {
+    execFile: (file, args, _opts, cb) => {
+      log.calls.push({ file, args })
+      const r = log.plan(args) || {}
+      setImmediate(() => cb(r.err || null, r.stdout || '', r.stderr || ''))
+    },
+  }
+  Module._load = function (r, ...a) { return r === 'vscode' ? vs : r === 'child_process' ? fakeCp : orig.call(this, r, ...a) }
   delete require.cache[EXT]
   const ext = require(EXT)
   Module._load = orig
@@ -478,4 +489,101 @@ test('every CSV mode groups digits by the same rule, and "none" gives plain numb
   plain.write('s.json', session({ buckets: { [hourNow()]: 13240843 } }))
   plain.start()
   for (const pick of ['model', 'long']) assert.ok((await exportAs(plain, pick)).includes('13240843'))
+})
+
+// ---- installing the plugin from the editor ----
+const exeName = process.platform === 'win32' ? 'claude.exe' : 'claude'
+function fakeClaude(home, editorDir, version) {
+  const dir = path.join(home, editorDir, 'extensions', `anthropic.claude-code-${version}`, 'resources', 'native-binary')
+  fs.mkdirSync(dir, { recursive: true })
+  const f = path.join(dir, exeName)
+  fs.writeFileSync(f, 'x')
+  return f
+}
+
+test('it finds Claude Code by itself: any editor folder, newest version first, never a stranger', () => {
+  const t = setup()
+  const old = fakeClaude(t.home, '.antigravity-ide', '2.1.290-win32-x64')
+  const newer = fakeClaude(t.home, '.vscode', '2.1.296-win32-x64')
+  fs.utimesSync(old, new Date(2026, 0, 1), new Date(2026, 0, 1))
+  fs.mkdirSync(path.join(t.home, '.config', 'extensions', 'anthropic.claude-code-9.9.9', 'resources', 'native-binary'), { recursive: true })
+  fs.writeFileSync(path.join(t.home, '.config', 'extensions', 'anthropic.claude-code-9.9.9', 'resources', 'native-binary', exeName), 'x') // not an editor folder
+  fakeClaude(t.home, '.cursor', '1.0.0')
+  const found = t.ext.__test.findClaudeBinaries()
+  assert.ok(found.includes(old) && found.includes(newer))
+  assert.ok(!found.some(f => f.includes(`${path.sep}.config${path.sep}`)))
+  assert.ok(found.indexOf(newer) < found.indexOf(old), 'newest first')
+  // and the extension the editor itself has loaded counts too
+  const loaded = path.join(t.home, 'loaded-ext')
+  fs.mkdirSync(path.join(loaded, 'resources', 'native-binary'), { recursive: true })
+  fs.writeFileSync(path.join(loaded, 'resources', 'native-binary', exeName), 'x')
+  t.log.extensions = [{ id: 'anthropic.claude-code', extensionPath: loaded }, { id: 'ms-python.python', extensionPath: path.join(t.home, 'nope') }]
+  assert.ok(t.ext.__test.findClaudeBinaries().includes(path.join(loaded, 'resources', 'native-binary', exeName)))
+})
+
+test('install: asks first, then runs exactly the three commands, with no shell', async () => {
+  const t = setup()
+  const bin = fakeClaude(t.home, '.antigravity-ide', '2.1.296')
+  t.start()
+  assert.equal(t.log.calls.length, 0, 'nothing runs on its own')
+  t.log.confirm = 'Install'
+  await t.cmds['claudeUsage.setup']()
+  assert.deepEqual(t.log.calls.map(c => c.args), [
+    ['plugin', 'marketplace', 'add', 'AndreyKilanov/claude-usage-monitor'],
+    ['plugin', 'install', 'usage-monitor@claude-usage-monitor', '--scope', 'user'],
+    ['plugin', 'update', 'usage-monitor@claude-usage-monitor'],
+  ])
+  assert.ok(t.log.calls.every(c => c.file === bin))
+  assert.match(t.log.warn.at(-1), /AndreyKilanov\/claude-usage-monitor/, 'the prompt names what will run and from where')
+  assert.match(t.log.info.at(-1), /NEW Claude session/)
+})
+
+test('install: declining runs nothing; an already-added catalogue is fine; a real failure is reported', async () => {
+  const t = setup()
+  fakeClaude(t.home, '.vscode', '2.1.296')
+  t.start()
+  t.log.confirm = undefined // closed the dialog
+  await t.cmds['claudeUsage.setup']()
+  assert.equal(t.log.calls.length, 0)
+
+  t.log.confirm = 'Install'
+  t.log.plan = args => (args[2] === 'add' ? { err: new Error('exit 1'), stderr: 'Marketplace claude-usage-monitor already exists' } : {})
+  await t.cmds['claudeUsage.setup']()
+  assert.equal(t.log.calls.length, 3)
+  assert.equal(t.log.info.length, 1)
+
+  t.log.calls.length = 0
+  t.log.plan = args => (args[1] === 'install' ? { err: new Error('exit 1'), stderr: 'EACCES: permission denied, mkdir' } : {})
+  await t.cmds['claudeUsage.setup']()
+  assert.deepEqual(t.log.calls.map(c => c.args[1]), ['marketplace', 'install'], 'no update after a failed install')
+  assert.match(t.log.error.at(-1), /EACCES/)
+})
+
+test('install: no Claude Code found offers to pick one by hand', async () => {
+  const t = setup().start()
+  await t.cmds['claudeUsage.setup']() // nothing chosen
+  assert.match(t.log.error.at(-1), /Could not find Claude Code/)
+  assert.equal(t.log.calls.length, 0)
+
+  const manual = path.join(t.home, 'somewhere', exeName)
+  fs.mkdirSync(path.dirname(manual), { recursive: true })
+  fs.writeFileSync(manual, 'x')
+  t.log.errorChoice = 'Choose claude manually…'
+  t.log.openPick = manual
+  t.log.confirm = 'Install'
+  await t.cmds['claudeUsage.setup']()
+  assert.ok(t.log.calls.every(c => c.file === manual))
+  assert.equal(t.log.calls.length, 3)
+})
+
+test('the status item installs the plugin when it is missing, opens the panel otherwise', () => {
+  const missing = setup()
+  fs.rmSync(missing.sessDir, { recursive: true })
+  missing.start()
+  assert.equal(missing.items[0].command, 'claudeUsage.setup')
+  assert.match(missing.tooltip(), /Click to install the plugin/)
+  const ok = setup()
+  ok.write('s.json', session())
+  ok.start()
+  assert.equal(ok.items[0].command, 'claudeUsage.open')
 })

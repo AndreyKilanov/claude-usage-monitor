@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.5
+
+- **One-click plugin install from the editor.** New command **Claude Usage: Install the plugin**, and the status bar item runs it when the data folder is missing (click it). The extension finds the Claude Code copy bundled with your editor (VS Code, Antigravity, Cursor, Windsurf, VSCodium), asks for confirmation naming exactly what will run, then runs `plugin marketplace add` and `plugin install usage-monitor --scope user` — no shell, no terminal. If no Claude Code is found you can point to `claude` by hand.
+- Nothing runs on its own: the install happens only after you confirm.
+- Tests: 14 plugin tests, 33 extension tests.
+
 ## 0.5.4
 
 Diagnosing and hardening Windows.

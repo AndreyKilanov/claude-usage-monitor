@@ -3,6 +3,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const crypto = require('crypto')
+const cp = require('child_process')
 
 const DIR = path.join(os.homedir(), '.claude')
 const SESS = path.join(DIR, 'usage-monitor')
@@ -23,6 +24,14 @@ const STR = {
     noFiles: 'Папка есть, но файлов сессий пока нет. Отправьте сообщение в НОВОЙ сессии Claude (плагин должен быть установлен и включён).',
     noReadable: 'Файлы сессий есть, но их не удалось прочитать (повреждены или не те права доступа).',
     lookingIn: 'Ищу данные в:',
+    setupTitle: 'Установить плагин usage-monitor',
+    setupAsk: 'Установить плагин usage-monitor для Claude Code?\n\nБудут выполнены две команды встроенной копии Claude Code:\n• plugin marketplace add AndreyKilanov/claude-usage-monitor\n• plugin install usage-monitor --scope user\n\nПлагин берётся с GitHub (AndreyKilanov/claude-usage-monitor) и только записывает цифры лимитов и токенов в папку ~/.claude/usage-monitor.',
+    setupYes: 'Установить', setupBusy: 'Устанавливаю плагин…',
+    setupDone: 'Плагин установлен. Начните НОВУЮ сессию Claude и отправьте сообщение — цифры появятся после первого ответа.',
+    setupNoClaude: 'Не нашёл Claude Code на этой машине. Установите расширение Claude Code (или укажите claude вручную) и повторите.',
+    setupPick: 'Указать claude вручную…',
+    setupFail: 'Не удалось установить плагин:',
+    setupClick: 'Нажмите, чтобы установить плагин автоматически.',
     pluginSays: 'Записка плагина:',
     pluginSilent: 'Плагин на этой машине не оставил записки: он не установлен, не включён или эта версия Claude не запускает модули плагинов. Выполните /plugin в Claude Code и проверьте, что usage-monitor включён.',
     h5: '5ч', week: 'нед', today: 'сегодня',
@@ -55,6 +64,14 @@ const STR = {
     noFiles: 'The folder exists but has no session files yet. Send a message in a NEW Claude session (the plugin must be installed and enabled).',
     noReadable: 'Session files exist but could not be read (damaged, or no permission).',
     lookingIn: 'Looking for data in:',
+    setupTitle: 'Install the usage-monitor plugin',
+    setupAsk: 'Install the usage-monitor plugin for Claude Code?\n\nTwo commands will run with the Claude Code copy bundled in your editor:\n• plugin marketplace add AndreyKilanov/claude-usage-monitor\n• plugin install usage-monitor --scope user\n\nThe plugin comes from GitHub (AndreyKilanov/claude-usage-monitor) and only writes limit and token numbers to ~/.claude/usage-monitor.',
+    setupYes: 'Install', setupBusy: 'Installing the plugin…',
+    setupDone: 'The plugin is installed. Start a NEW Claude session and send a message — numbers appear after the first reply.',
+    setupNoClaude: 'Could not find Claude Code on this machine. Install the Claude Code extension (or point to claude manually) and try again.',
+    setupPick: 'Choose claude manually…',
+    setupFail: 'Could not install the plugin:',
+    setupClick: 'Click to install the plugin automatically.',
     pluginSays: 'Note from the plugin:',
     pluginSilent: 'The plugin has left no note on this machine: it is not installed, not enabled, or this Claude version does not run plugin modules. Run /plugin in Claude Code and check that usage-monitor is enabled.',
     h5: '5h', week: 'wk', today: 'today',
@@ -343,6 +360,38 @@ function forecast(history, u) {
   return eta < reset ? eta : null
 }
 
+// Where a Claude Code binary may live: the Claude Code extension of any VS Code-style editor, newest first.
+function findClaudeBinaries() {
+  const exe = process.platform === 'win32' ? 'claude.exe' : 'claude'
+  const found = []
+  const add = f => { try { if (fs.statSync(f).isFile()) found.push({ f, t: fs.statSync(f).mtimeMs }) } catch {} }
+  // 1. the extension the editor itself has loaded
+  try {
+    for (const e of vscode.extensions.all || []) {
+      if (/claude-code/i.test(e.id)) add(path.join(e.extensionPath, 'resources', 'native-binary', exe))
+    }
+  } catch {}
+  // 2. extension folders of the usual editors in the home directory
+  const home = os.homedir()
+  let roots = []
+  try { roots = fs.readdirSync(home).filter(n => /^\.(vscode|cursor|windsurf|antigravity|vscodium|positron)/i.test(n)) } catch {}
+  for (const r of roots) {
+    const ext = path.join(home, r, 'extensions')
+    let names = []
+    try { names = fs.readdirSync(ext).filter(n => /^anthropic\.claude-code-/i.test(n)) } catch {}
+    for (const n of names) add(path.join(ext, n, 'resources', 'native-binary', exe))
+  }
+  const seen = new Set()
+  return found.sort((a, b) => b.t - a.t).map(x => x.f).filter(f => (seen.has(f) ? false : seen.add(f)))
+}
+
+const run = (file, args) =>
+  new Promise(resolve => {
+    cp.execFile(file, args, { timeout: 120_000, windowsHide: true, maxBuffer: 1 << 20 }, (err, stdout, stderr) => {
+      resolve({ ok: !err, out: `${stdout || ''}${stderr || ''}`.trim(), err })
+    })
+  })
+
 // The plugin leaves diagnostics.txt in its own folder (under ~/.claude/plugins/...). Find it without walking the whole disk.
 function findPluginNote() {
   const root = path.join(DIR, 'plugins')
@@ -373,7 +422,7 @@ function noDataHelp() {
   } catch {
     exists = false
   }
-  const why = !exists ? `${L.noFolder}\n\n\`/plugin install usage-monitor --marketplace AndreyKilanov/claude-usage-monitor\``
+  const why = !exists ? `${L.noFolder}\n\n\`/plugin install usage-monitor --marketplace AndreyKilanov/claude-usage-monitor\`\n\n**${L.setupClick}**`
     : names.length === 0 ? L.noFiles
     : L.noReadable
   const note = findPluginNote()
@@ -430,10 +479,12 @@ function activate(context) {
     if (!u) {
       item.text = `$(pulse) ${L.noData}`
       item.tooltip = new vscode.MarkdownString(noDataHelp(), false)
+      item.command = fs.existsSync(SESS) ? 'claudeUsage.open' : 'claudeUsage.setup'
       item.backgroundColor = undefined
       item.show()
       return
     }
+    item.command = 'claudeUsage.open'
     if (u.updatedAt && u.updatedAt !== lastStamp && u.fiveHour != null) {
       lastStamp = u.updatedAt
       if (history.length && u.fiveHour < history[history.length - 1].p) history = []
@@ -607,6 +658,38 @@ function activate(context) {
     vscode.window.showInformationMessage(`${L.csvDone}: ${uri.fsPath}`)
   }
 
+  const setup = async () => {
+    let bins = findClaudeBinaries()
+    if (!bins.length) {
+      const pick = await vscode.window.showErrorMessage(L.setupNoClaude, L.setupPick)
+      if (pick !== L.setupPick) return
+      const chosen = await vscode.window.showOpenDialog({ canSelectMany: false, title: L.setupPick })
+      if (!chosen || !chosen[0]) return
+      bins = [chosen[0].fsPath]
+    }
+    const yes = await vscode.window.showWarningMessage(`${L.setupAsk}\n\n${bins[0]}`, { modal: true }, L.setupYes)
+    if (yes !== L.setupYes) return
+    const claude = bins[0]
+    const steps = [
+      { args: ['plugin', 'marketplace', 'add', 'AndreyKilanov/claude-usage-monitor'], okIfSays: /already/i },
+      { args: ['plugin', 'install', 'usage-monitor@claude-usage-monitor', '--scope', 'user'], okIfSays: /already installed/i },
+    ]
+    const result = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: L.setupBusy },
+      async () => {
+        for (const step of steps) {
+          const r = await run(claude, step.args)
+          if (!r.ok && !step.okIfSays.test(r.out)) return r
+        }
+        await run(claude, ['plugin', 'update', 'usage-monitor@claude-usage-monitor']) // best effort: pick up a newer version
+        return { ok: true }
+      },
+    )
+    if (result.ok) vscode.window.showInformationMessage(L.setupDone)
+    else vscode.window.showErrorMessage(`${L.setupFail} ${(result.out || String(result.err && result.err.message)).slice(0, 400)}`)
+    render()
+  }
+
   render()
   const watchTimer = setInterval(render, 3000)
   if (watchTimer.unref) watchTimer.unref()
@@ -629,6 +712,7 @@ function activate(context) {
     vscode.commands.registerCommand('claudeUsage.open', open),
     vscode.commands.registerCommand('claudeUsage.refresh', render),
     vscode.commands.registerCommand('claudeUsage.exportCsv', exportCsv),
+    vscode.commands.registerCommand('claudeUsage.setup', setup),
     { dispose: () => { clearInterval(watchTimer); clearInterval(timer) } },
   )
 }
@@ -776,4 +860,4 @@ function panelHtml() {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, __test: { noDataHelp, prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }
+module.exports = { activate, deactivate, __test: { findClaudeBinaries, noDataHelp, prettyModel, readTotals, forecast, panelHtml, dayStart, readLimits, scan } }
