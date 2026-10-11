@@ -27,6 +27,7 @@ const STR = {
     kindsTitle: 'Состав токенов',
     kindCacheRead: 'Чтение кэша', kindCacheWrite: 'Запись в кэш', kindInput: 'Новый запрос', kindOutput: 'Ответ', kindUnknown: 'Без разбивки (старые записи)',
     kindsNote: 'Большую часть составляет чтение кэша — контекст, который заново отправляется с каждым ответом. Он стоит намного дешевле нового запроса, поэтому общее число получается таким большим.',
+    kindsOutdated: 'Плагин на этом компьютере старой версии и не записывает разбивку. Обновите его: меню → «Установить плагин usage-monitor», затем начните новую сессию Claude.',
     csvDimType: 'тип',
     menuPanel: 'Открыть панель', menuCopy: 'Копировать сводку', menuRefresh: 'Обновить', menuSettings: 'Настройки', menuHelp: 'Справка и обратная связь', copied: 'Скопировано:',
     setupTitle: 'Установить плагин usage-monitor',
@@ -72,6 +73,7 @@ const STR = {
     kindsTitle: 'What the tokens are made of',
     kindCacheRead: 'Cache reads', kindCacheWrite: 'Cache writes', kindInput: 'New input', kindOutput: 'Output', kindUnknown: 'Not split (older data)',
     kindsNote: 'Most of the total is cache reads: context re-sent with every reply. It is billed far cheaper than new input, which is why the number looks huge.',
+    kindsOutdated: 'The plugin on this computer is an old version and does not record the split. Update it: menu → "Install the usage-monitor plugin", then start a new Claude session.',
     csvDimType: 'type',
     menuPanel: 'Open panel', menuCopy: 'Copy summary', menuRefresh: 'Refresh', menuSettings: 'Settings', menuHelp: 'Help and report a problem', copied: 'Copied:',
     setupTitle: 'Install the usage-monitor plugin',
@@ -311,7 +313,7 @@ const top = (map, n = 6) => {
 }
 
 // Tokens for every session on every device: today (by hour), 7 and 30 days (by day), and breakdowns.
-function readTotals(list) {
+function readTotals(list, localId) {
   const now = Date.now()
   const midnight = dayStart(now, 0)
   const mk = n => ({ bars: [], total: 0, models: {}, projects: {}, kinds: { i: 0, o: 0, w: 0, r: 0 } })
@@ -324,6 +326,7 @@ function readTotals(list) {
   periods.d7.bars = dayBars(7)
   periods.d30.bars = dayBars(30)
   const raw = []
+  let newestLocal = null // the freshest local session that has spent tokens: does it record the split?
   let sessionsToday = 0
   const devices = new Set()
   for (const { full, d, machine } of list) {
@@ -331,6 +334,10 @@ function readTotals(list) {
     if (now - (num(d.updatedAt) || 0) > KEEP_DAYS * DAY) {
       if (full.startsWith(SESS)) { try { fs.unlinkSync(full) } catch {} }
       continue
+    }
+    if (machine === localId && d.buckets && typeof d.buckets === 'object' && Object.keys(d.buckets).length && (!newestLocal || (num(d.updatedAt) || 0) > newestLocal.t)) {
+      const det = d.detail && typeof d.detail === 'object' ? Object.values(d.detail) : []
+      newestLocal = { t: num(d.updatedAt) || 0, hasKinds: det.some(h => h && h.k && typeof h.k === 'object') }
     }
     let hitToday = false
     for (const [k, v0] of Object.entries(d.buckets && typeof d.buckets === 'object' ? d.buckets : {})) {
@@ -359,7 +366,7 @@ function readTotals(list) {
     }
     if (hitToday) sessionsToday++
   }
-  return { periods, sessionsToday, devices: devices.size, raw }
+  return { periods, sessionsToday, devices: devices.size, raw, pluginOutdated: !!(newestLocal && !newestLocal.hasKinds) }
 }
 
 // Time until the 5-hour window hits 100% at the pace of the last hour; null when there is no honest answer.
@@ -492,7 +499,7 @@ function activate(context) {
     pushSync(machineId)
     const all = scan(machineId)
     const u = readLimits(all)
-    const t = readTotals(all)
+    const t = readTotals(all, machineId)
     if (!u) {
       item.text = `$(pulse) ${L.noData}`
       item.tooltip = new vscode.MarkdownString(noDataHelp(), false)
@@ -561,7 +568,7 @@ function activate(context) {
       L: {
         title: L.title, updated: L.updated, resetsCap: L.resetsCap, noReset: L.noReset, forecast: L.forecast, note: L.note,
         tabToday: L.tabToday, tab7: L.tab7, tab30: L.tab30, byModel: L.byModel, byProject: L.byProject, noBreakdown: L.noBreakdown,
-        kindsTitle: L.kindsTitle, kindCacheRead: L.kindCacheRead, kindCacheWrite: L.kindCacheWrite, kindInput: L.kindInput, kindOutput: L.kindOutput, kindUnknown: L.kindUnknown, kindsNote: L.kindsNote,
+        kindsTitle: L.kindsTitle, kindCacheRead: L.kindCacheRead, kindCacheWrite: L.kindCacheWrite, kindInput: L.kindInput, kindOutput: L.kindOutput, kindUnknown: L.kindUnknown, kindsNote: L.kindsNote, kindsOutdated: L.kindsOutdated,
         tokens: L.tokens, sessions: L.sessions, devices: L.devices, curSession: L.curSession, exportCsv: L.exportCsv, total: L.total, perDay: L.perDay,
       },
       locale: L.locale,
@@ -572,6 +579,7 @@ function activate(context) {
       eta: eta ? fmtMs(eta) : null,
       periods: { today: per('today'), d7: per('d7'), d30: per('d30') },
       sessionsToday: t.sessionsToday,
+      pluginOutdated: t.pluginOutdated,
       devicesCount: t.devices,
       session: { tokens: u.tokens || 0, usd: u.usd ?? null },
     }
@@ -597,7 +605,7 @@ function activate(context) {
 
   const exportCsv = async () => {
     const all = scan(machineId)
-    const t = readTotals(all)
+    const t = readTotals(all, machineId)
     if (!t.raw.length) return vscode.window.showInformationMessage(L.csvNone)
 
     const pick = await vscode.window.showQuickPick(
@@ -737,7 +745,9 @@ function activate(context) {
           const r = await run(claude, step.args)
           if (!r.ok && !step.okIfSays.test(r.out)) return r
         }
-        await run(claude, ['plugin', 'update', 'usage-monitor@claude-usage-monitor']) // best effort: pick up a newer version
+        // the catalogue keeps its own copy of the version list: refresh it, or "update" would see nothing new
+        await run(claude, ['plugin', 'marketplace', 'update', 'claude-usage-monitor'])
+        await run(claude, ['plugin', 'update', 'usage-monitor@claude-usage-monitor']) // best effort
         return { ok: true }
       },
     )
@@ -823,6 +833,7 @@ function panelHtml() {
   .leg { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 5px 0; }
   .leg b { width: 10px; height: 10px; border-radius: 3px; flex: none; }
   .leg span:nth-child(2) { flex: 1; } .leg span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .warnbox { margin-top: 10px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--warn); background: rgba(210,153,34,.08); font-size: 12px; }
   .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; gap: 10px; flex-wrap: wrap; }
   .btn { border: 1px solid var(--line); background: var(--card); color: inherit; padding: 6px 12px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 12px; }
   .btn:hover { border-color: var(--accent); }
@@ -842,6 +853,7 @@ function panelHtml() {
     <div class="stack" id="stack"></div>
     <div id="legend"></div>
     <div class="sub" id="knote"></div>
+    <div class="warnbox hidden" id="koutdated"></div>
   </div>
   <div class="cols2">
     <div class="card"><div class="label" id="mlabel"></div><div id="models"></div></div>
@@ -900,6 +912,8 @@ function panelHtml() {
       row.append(dot, el('span', '', name), el('span', '', fmt(k[key]) + ' · ' + Math.round(k[key] / total * 100) + '%')); legend.appendChild(row)
     }
     $('knote').textContent = k.cacheRead / total >= 0.5 ? data.L.kindsNote : ''
+    $('koutdated').classList.toggle('hidden', !data.pluginOutdated)
+    $('koutdated').textContent = data.pluginOutdated ? data.L.kindsOutdated : ''
   }
 
   function draw() {

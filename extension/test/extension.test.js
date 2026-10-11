@@ -521,7 +521,7 @@ test('it finds Claude Code by itself: any editor folder, newest version first, n
   assert.ok(t.ext.__test.findClaudeBinaries().includes(path.join(loaded, 'resources', 'native-binary', exeName)))
 })
 
-test('install: asks first, then runs exactly the three commands, with no shell', async () => {
+test('install: asks first, then runs exactly the install commands, with no shell', async () => {
   const t = setup()
   const bin = fakeClaude(t.home, '.antigravity-ide', '2.1.296')
   t.start()
@@ -531,6 +531,7 @@ test('install: asks first, then runs exactly the three commands, with no shell',
   assert.deepEqual(t.log.calls.map(c => c.args), [
     ['plugin', 'marketplace', 'add', 'AndreyKilanov/claude-usage-monitor'],
     ['plugin', 'install', 'usage-monitor@claude-usage-monitor', '--scope', 'user'],
+    ['plugin', 'marketplace', 'update', 'claude-usage-monitor'], // refresh the version list, or "update" sees nothing new
     ['plugin', 'update', 'usage-monitor@claude-usage-monitor'],
   ])
   assert.ok(t.log.calls.every(c => c.file === bin))
@@ -549,7 +550,7 @@ test('install: declining runs nothing; an already-added catalogue is fine; a rea
   t.log.confirm = 'Install'
   t.log.plan = args => (args[2] === 'add' ? { err: new Error('exit 1'), stderr: 'Marketplace claude-usage-monitor already exists' } : {})
   await t.cmds['claudeUsage.setup']()
-  assert.equal(t.log.calls.length, 3)
+  assert.equal(t.log.calls.length, 4)
   assert.equal(t.log.info.length, 1)
 
   t.log.calls.length = 0
@@ -573,7 +574,7 @@ test('install: no Claude Code found offers to pick one by hand', async () => {
   t.log.confirm = 'Install'
   await t.cmds['claudeUsage.setup']()
   assert.ok(t.log.calls.every(c => c.file === manual))
-  assert.equal(t.log.calls.length, 3)
+  assert.equal(t.log.calls.length, 4)
 })
 
 test('the status item installs the plugin when it is missing, otherwise opens the menu (or the panel, by setting)', () => {
@@ -703,4 +704,60 @@ test('both languages have the same keys, no empty strings, and Russian text is r
   // the names read well inside alerts
   assert.equal(STR.ru.warnMsg(STR.ru.win5, 85), 'Claude: 5-часовой лимит — использовано 85%')
   assert.equal(STR.ru.resetMsg(STR.ru.winWeek), 'Claude: Недельный лимит сброшен — можно продолжать работу')
+})
+
+// ---- an outdated plugin on this machine ----
+const outdated = t => { t.cmds['claudeUsage.open'](); t.refresh(); return t.log.posted.at(-1).data.pluginOutdated }
+
+test('outdated plugin: newest local data without the split triggers the warning, with it does not', () => {
+  const h = hourNow()
+  const withK = { m: { m: 10 }, p: { p: 10 }, k: { i: 1, o: 1, w: 1, r: 7 } }
+  const noK = { m: { m: 10 }, p: { p: 10 } }
+
+  const old = setup()
+  old.write('a.json', session({ buckets: { [h]: 10 }, detail: { [h]: noK } }))
+  old.start()
+  assert.equal(outdated(old), true)
+  assert.match(old.log.panels[0].html, /id="koutdated"/)
+
+  const fresh = setup()
+  fresh.write('a.json', session({ buckets: { [h]: 10 }, detail: { [h]: withK } }))
+  fresh.start()
+  assert.equal(outdated(fresh), false)
+
+  // the plugin was updated: an old file is followed by a newer one that has the split
+  const updated = setup()
+  updated.write('old.json', session({ updatedAt: Date.now() - 5000, buckets: { [h]: 10 }, detail: { [h]: noK } }))
+  updated.write('new.json', session({ updatedAt: Date.now(), buckets: { [h]: 10 }, detail: { [h]: withK } }))
+  updated.start()
+  assert.equal(outdated(updated), false)
+
+  // ...and the other way round: a newer file without it means the plugin here is still old
+  const stale = setup()
+  stale.write('old.json', session({ updatedAt: Date.now() - 5000, buckets: { [h]: 10 }, detail: { [h]: withK } }))
+  stale.write('new.json', session({ updatedAt: Date.now(), buckets: { [h]: 10 }, detail: { [h]: noK } }))
+  stale.start()
+  assert.equal(outdated(stale), true)
+})
+
+test('outdated plugin: an empty new session, another machine, or no data at all never raise a false alarm', () => {
+  const h = hourNow()
+  const noK = { m: { m: 10 }, p: { p: 10 } }
+  const emptyNew = setup()
+  emptyNew.write('has.json', session({ updatedAt: Date.now() - 5000, buckets: { [h]: 10 }, detail: { [h]: { ...noK, k: { i: 1, o: 1, w: 1, r: 7 } } } }))
+  emptyNew.write('just-started.json', session({ updatedAt: Date.now(), buckets: {}, detail: {} })) // no reply yet
+  emptyNew.start()
+  assert.equal(outdated(emptyNew), false)
+
+  const sync = fs.mkdtempSync(path.join(os.tmpdir(), 'cum-sync-'))
+  const remote = setup({ config: { syncFolder: sync } })
+  remote.write('theirs.json', session({ buckets: { [h]: 10 }, detail: { [h]: noK } }), path.join(sync, 'other-pc'))
+  remote.write('mine.json', session({ updatedAt: Date.now() - 9000, buckets: { [h]: 10 }, detail: { [h]: { ...noK, k: { i: 1, o: 1, w: 1, r: 7 } } } }))
+  remote.start()
+  assert.equal(outdated(remote), false, "another computer's old plugin is not this machine's problem")
+
+  const none = setup()
+  none.write('x.json', session({ buckets: {} }))
+  none.start()
+  assert.equal(outdated(none), false)
 })

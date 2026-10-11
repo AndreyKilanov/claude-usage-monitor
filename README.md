@@ -110,6 +110,8 @@ Hover it — the tooltip says which case you are in and which folder it checks (
 3. **Remote / WSL / SSH windows:** the extension and the plugin must run on the same machine and read the same home folder.
 4. **Still nothing:** run `/plugin` in Claude Code and check that `usage-monitor` is enabled.
 
+**The panel says "Not split (older data)" for everything.** The token split is recorded by plugin 0.6 and newer, and only for replies sent after the update. Click the status bar item → *Install the usage-monitor plugin* to update it, then start a **new** Claude session; the share of unsplit tokens shrinks as new replies arrive. The panel warns you when the plugin on that computer is still an old version.
+
 The tooltip also shows the plugin's own note (`diagnostics.txt` in the plugin folder): `loaded` means the plugin runs, `error` carries the failing path and the system message. If it says the plugin left no note, the plugin is not running on that machine.
 
 ## Build from source
@@ -192,5 +194,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 2. **Папка есть, но пуста.** Отправьте сообщение в **новой** сессии. Сессии, начатые до установки или обновления плагина, не учитываются.
 3. **Удалённые окна (WSL, SSH).** Расширение и плагин должны работать на одном компьютере и читать одну и ту же домашнюю папку.
 4. **Ничего не помогло.** Выполните `/plugin` в Claude Code и проверьте, что `usage-monitor` включён.
+
+**В панели вся разбивка «Без разбивки (старые записи)».** Состав токенов записывает плагин версии 0.6 и новее, и только для ответов, отправленных после обновления. Нажмите на элемент в строке состояния → «Установить плагин usage-monitor», затем начните **новую** сессию Claude: доля токенов без разбивки будет уменьшаться по мере новых ответов. Если плагин на этом компьютере всё ещё старой версии, панель предупредит об этом.
 
 В подсказке также показывается сообщение самого плагина (файл `diagnostics.txt` в его папке). Слово `loaded` означает, что плагин запущен, а `error` — что произошла ошибка, и рядом будут путь и текст системной ошибки. Если сказано, что плагин ничего не сообщил, значит, на этом компьютере он не работает.

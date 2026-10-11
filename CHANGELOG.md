@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2
+
+- **Install / update fixed.** The install command now refreshes the catalogue's version list (`plugin marketplace update`) before `plugin update`; without it an already-installed old plugin could be reported as "up to date" and never pick up 0.6.
+- **Outdated plugin is detected.** If the newest data on this computer has no token split, the panel says the plugin here is an old version and points to *menu → Install the usage-monitor plugin*, instead of just showing "Not split (older data)".
+- Tests: 16 plugin tests, 42 extension tests.
+
 ## 0.6.1
 
 - Russian interface and README rewritten in natural language: «5-часовой лимит» / «Недельный лимит» instead of «Окно 5 часов», «Состав токенов», «Новый запрос», «Сообщение плагина», clearer notices and alerts, no more «2 устройств». The Russian README is rewritten as a whole.
