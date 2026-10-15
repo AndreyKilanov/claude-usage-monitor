@@ -22,9 +22,10 @@ async function runSteps(claude) {
     const result = await run(claude, step.args)
     if (!result.ok && !step.okIfSays.test(result.out)) return result
   }
-  await run(claude, ['plugin', 'marketplace', 'update', MARKETPLACE])
-  await run(claude, ['plugin', 'update', PLUGIN_ID])
-  return { ok: true }
+  const refreshed = await run(claude, ['plugin', 'marketplace', 'update', MARKETPLACE])
+  const updated = await run(claude, ['plugin', 'update', PLUGIN_ID])
+  const detail = [refreshed, updated].map(step => (step.ok ? step.out : `${step.out || step.err}`)).filter(Boolean).join('\n')
+  return { ok: true, detail }
 }
 
 function createSetup({ render }) {
@@ -38,7 +39,7 @@ function createSetup({ render }) {
       { location: vscode.ProgressLocation.Notification, title: L.setupBusy },
       () => runSteps(claude),
     )
-    if (result.ok) vscode.window.showInformationMessage(L.setupDone)
+    if (result.ok) vscode.window.showInformationMessage(result.detail ? `${L.setupDone}\n\n${result.detail.slice(0, 400)}` : L.setupDone)
     else vscode.window.showErrorMessage(`${L.setupFail} ${(result.out || String(result.err && result.err.message)).slice(0, 400)}`)
     render()
   }

@@ -42,6 +42,16 @@ test('install: asks first, then runs exactly the install commands, with no shell
   assert.match(t.log.info.at(-1), /NEW Claude session/)
 })
 
+test('install: what the update commands say is shown, so a stale update is visible', async () => {
+  const t = setup()
+  fakeClaude(t.home, '.antigravity-ide', '2.1.296')
+  t.log.plan = args => (args[1] === 'update' ? { stdout: 'usage-monitor is already at the latest version (0.6.3)' } : {})
+  t.start()
+  t.log.confirm = 'Install'
+  await t.cmds['claudeUsage.setup']()
+  assert.match(t.log.info.at(-1), /already at the latest version \(0\.6\.3\)/)
+})
+
 test('install: declining runs nothing; an already-added catalogue is fine; a real failure is reported', async () => {
   const t = setup()
   fakeClaude(t.home, '.vscode', '2.1.296')
