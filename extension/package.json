@@ -2,7 +2,7 @@
   "name": "claude-usage-monitor",
   "displayName": "Claude Usage Monitor — Limits & Tokens",
   "description": "Claude Code 5-hour and weekly limits, tokens by day, model and project, alerts and a pace forecast in the status bar. Unofficial. Русский / English.",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "publisher": "andreykilanov",
   "license": "MIT",
   "icon": "icon.png",
