@@ -18,7 +18,7 @@ module.exports = {
   offerText: 'Claude Usage Monitor нужен небольшой плагин для Claude Code: без него в строке состояния не будет цифр. Настроить сейчас?',
   offerYes: 'Установить…', offerLater: 'Позже', offerNever: 'Больше не спрашивать',
   setupTitle: 'Установить плагин usage-monitor',
-  setupAsk: 'Установить плагин usage-monitor для Claude Code?\n\nРасширение выполнит две команды в копии Claude Code, встроенной в ваш редактор:\n• plugin marketplace add https://github.com/AndreyKilanov/claude-usage-monitor.git\n• plugin install usage-monitor --scope user\n\nЕсли останется устаревшая версия, она будет удалена и установлена заново из того же источника.\n\nПлагин загружается с GitHub (AndreyKilanov/claude-usage-monitor) и лишь записывает значения лимитов и токенов в папку ~/.claude/usage-monitor.',
+  setupAsk: 'Установить плагин usage-monitor для Claude Code?\n\nРасширение выполнит две команды в копии Claude Code, встроенной в ваш редактор:\n• plugin marketplace add AndreyKilanov/claude-usage-monitor\n• plugin install usage-monitor --scope user\n\nЕсли останется устаревшая версия, она будет удалена и установлена заново из того же источника.\n\nПлагин загружается с GitHub (AndreyKilanov/claude-usage-monitor) и лишь записывает значения лимитов и токенов в папку ~/.claude/usage-monitor.',
   setupYes: 'Установить', setupBusy: 'Устанавливаю плагин…',
   setupDone: 'Плагин установлен. Начните новую сессию Claude и отправьте любое сообщение — цифры появятся после первого ответа.',
   setupNoClaude: 'Не удалось найти Claude Code на этом компьютере. Установите расширение Claude Code или укажите путь к claude вручную.',
