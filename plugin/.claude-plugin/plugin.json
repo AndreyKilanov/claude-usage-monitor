@@ -1,6 +1,6 @@
 {
   "name": "usage-monitor",
-  "version": "0.6.3",
+  "version": "0.6.5",
   "description": "Claude Code usage monitor: 5-hour and weekly limits, tokens by model and project; feeds the Claude Usage Monitor editor extension (ru/en)",
   "types": "./types/index.d.ts",
   "license": "MIT",

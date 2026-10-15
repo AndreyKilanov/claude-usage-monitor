@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.5
+
+- **Plugin: the limits line is no longer shown twice.** Newer Claude Code versions draw the plugin's status line as a separate row, so the same "5h … · wk … · tokens …" text appeared both there and in the band above the prompt. The status line is gone; the band above the prompt stays. The data the extension reads is unchanged.
+
+**Update the plugin** (menu → *Install the usage-monitor plugin*) and start a new Claude session to get rid of the duplicate line.
+
 ## 0.6.4
 
 - **First-run offer to set up the plugin.** The first time the extension starts and the Claude Code plugin it needs is nowhere to be found (no data folder, not switched on in your Claude settings), it asks once, a few seconds after startup: *Set up… / Later / Don't ask again*. *Set up…* opens the usual confirmation that lists the exact commands, and nothing runs until you confirm there. It never asks when there is data, when the plugin has run at least once, or when `claudeUsage.offerPluginInstall` is off; *Later* asks again next start, *Don't ask again* is final.
