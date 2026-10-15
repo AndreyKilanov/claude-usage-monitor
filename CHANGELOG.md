@@ -1,9 +1,13 @@
 # Changelog
 
+## 0.6.7
+
+- **Install button fixed.** 0.6.6 added the catalogue by an https address, but Claude Code remembers the catalogue as `AndreyKilanov/claude-usage-monitor` in your settings and refuses a different address ("its source doesn't match its extraKnownMarketplaces entry"). The button uses the original address again.
+
 ## 0.6.6
 
 - **Plugin: nothing is drawn in the Claude interface any more.** The band above the prompt ("From the usage-monitor plugin …") is gone; the plugin only writes the data files the editor extension reads. Limits and tokens stay in the extension's status bar and panel.
-- **Install button:** adds the catalogue by its https address (machines without a GitHub SSH key could not clone it), shows what the update commands answered, and removes and reinstalls the plugin when it stays outdated.
+- **Install button:** shows what the update commands answered, and removes and reinstalls the plugin when it stays outdated.
 
 ## 0.6.5
 
