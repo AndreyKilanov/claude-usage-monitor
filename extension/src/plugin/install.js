@@ -1,12 +1,37 @@
 const vscode = require('vscode')
+const fs = require('fs')
+const path = require('path')
 const { L } = require('../i18n')
-const { MARKETPLACE, PLUGIN_ID, MARKETPLACE_SOURCE } = require('../constants')
+const { DIR, MARKETPLACE, PLUGIN_ID, MARKETPLACE_SOURCE, LATEST_PLUGIN } = require('../constants')
+const { cmpVer } = require('../util/versions')
 const { findClaudeBinaries, run } = require('./binaries')
 
 const STEPS = [
   { args: ['plugin', 'marketplace', 'add', MARKETPLACE_SOURCE], okIfSays: /already/i },
   { args: ['plugin', 'install', PLUGIN_ID, '--scope', 'user'], okIfSays: /already installed/i },
 ]
+
+const REINSTALL_STEPS = [
+  ['plugin', 'uninstall', PLUGIN_ID],
+  ['plugin', 'marketplace', 'remove', MARKETPLACE],
+  ['plugin', 'marketplace', 'add', MARKETPLACE_SOURCE],
+  ['plugin', 'install', PLUGIN_ID, '--scope', 'user'],
+]
+
+function installedVersion() {
+  try {
+    const registry = JSON.parse(fs.readFileSync(path.join(DIR, 'plugins', 'installed_plugins.json'), 'utf8'))
+    const entry = (registry.plugins || {})[PLUGIN_ID]
+    return entry && entry[0] && typeof entry[0].version === 'string' ? entry[0].version : null
+  } catch {
+    return null
+  }
+}
+
+const isStale = () => {
+  const version = installedVersion()
+  return version !== null && cmpVer(version, LATEST_PLUGIN) < 0
+}
 
 async function chooseBinary() {
   const found = findClaudeBinaries()
@@ -25,7 +50,12 @@ async function runSteps(claude) {
   const refreshed = await run(claude, ['plugin', 'marketplace', 'update', MARKETPLACE])
   const updated = await run(claude, ['plugin', 'update', PLUGIN_ID])
   const detail = [refreshed, updated].map(step => (step.ok ? step.out : `${step.out || step.err}`)).filter(Boolean).join('\n')
-  return { ok: true, detail }
+  if (!isStale()) return { ok: true, detail }
+
+  const outputs = [detail]
+  for (const args of REINSTALL_STEPS) outputs.push((await run(claude, args)).out)
+  const rest = outputs.filter(Boolean).join('\n')
+  return isStale() ? { ok: true, stale: installedVersion(), detail: rest } : { ok: true, detail: rest }
 }
 
 function createSetup({ render }) {
@@ -39,8 +69,13 @@ function createSetup({ render }) {
       { location: vscode.ProgressLocation.Notification, title: L.setupBusy },
       () => runSteps(claude),
     )
-    if (result.ok) vscode.window.showInformationMessage(result.detail ? `${L.setupDone}\n\n${result.detail.slice(0, 400)}` : L.setupDone)
-    else vscode.window.showErrorMessage(`${L.setupFail} ${(result.out || String(result.err && result.err.message)).slice(0, 400)}`)
+    if (result.ok && result.stale) {
+      vscode.window.showWarningMessage(`${L.setupStale(result.stale, LATEST_PLUGIN)}\n\n${result.detail.slice(-400)}`)
+    } else if (result.ok) {
+      vscode.window.showInformationMessage(result.detail ? `${L.setupDone}\n\n${result.detail.slice(0, 400)}` : L.setupDone)
+    } else {
+      vscode.window.showErrorMessage(`${L.setupFail} ${(result.out || String(result.err && result.err.message)).slice(0, 400)}`)
+    }
     render()
   }
 }

@@ -52,6 +52,43 @@ test('install: what the update commands say is shown, so a stale update is visib
   assert.match(t.log.info.at(-1), /already at the latest version \(0\.6\.3\)/)
 })
 
+const writeInstalled = (t, version) => {
+  const dir = path.join(t.home, '.claude', 'plugins')
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, 'installed_plugins.json'), JSON.stringify({ plugins: { 'usage-monitor@claude-usage-monitor': [{ version }] } }))
+}
+
+test('install: a plugin that stays outdated after the update is removed and installed again', async () => {
+  const t = setup()
+  fakeClaude(t.home, '.antigravity-ide', '2.1.296')
+  writeInstalled(t, '0.6.3')
+  t.start()
+  t.log.confirm = 'Install'
+  await t.cmds['claudeUsage.setup']()
+  assert.deepEqual(t.log.calls.slice(4).map(c => c.args.slice(0, 3).join(' ')), [
+    'plugin uninstall usage-monitor@claude-usage-monitor',
+    'plugin marketplace remove',
+    'plugin marketplace add',
+    'plugin install usage-monitor@claude-usage-monitor',
+  ])
+  assert.match(t.log.warn.at(-1), /still version 0\.6\.3/, 'the fake CLI changed nothing, so the user is told the truth')
+})
+
+test('install: an up-to-date plugin is not reinstalled', async () => {
+  const t = setup()
+  fakeClaude(t.home, '.antigravity-ide', '2.1.296')
+  writeInstalled(t, require('../src/constants').LATEST_PLUGIN)
+  t.start()
+  t.log.confirm = 'Install'
+  await t.cmds['claudeUsage.setup']()
+  assert.equal(t.log.calls.length, 4)
+})
+
+test('install: the newest known plugin version matches the plugin manifest', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', '.claude-plugin', 'plugin.json'), 'utf8'))
+  assert.equal(setup().mod('constants').LATEST_PLUGIN, manifest.version)
+})
+
 test('install: declining runs nothing; an already-added catalogue is fine; a real failure is reported', async () => {
   const t = setup()
   fakeClaude(t.home, '.vscode', '2.1.296')
