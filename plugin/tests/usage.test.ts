@@ -10,6 +10,8 @@ const usageOf = (model: string, n: number) => ({
   cache_read_input_tokens: 0,
 })
 
+const statusCalls: unknown[] = []
+
 const world = (on: any, sid: { v: string }, files: Map<string, string>) => {
   mock.clock(on, { now: NOW })
   mock.env(on, { HOME: '/home/u', LANG: 'en_US.UTF-8' })
@@ -24,7 +26,10 @@ const world = (on: any, sid: { v: string }, files: Map<string, string>) => {
     if (!files.has(e.path)) throw new Error('ENOENT')
     return { value: files.get(e.path) }
   })
-  on('ui.status', () => ({ value: undefined }))
+  on('ui.status', (_$: any, e: any) => {
+    statusCalls.push(e)
+    return { value: undefined }
+  })
   on('turn.complete', () => ({ text: '' }))
   on('session.measure', (_$: any, e: any) => ({ changed: e.changed }))
 }
@@ -103,6 +108,18 @@ test('the limits the engine reports are written for the extension', async ($, on
   expect(f.sevenDayResetsAt).toBe(null)
   expect(f.usd).toBe(1.5)
   expect(f.limits.length).toBe(2)
+})
+
+test('the limits show once, in the band above the prompt, not also as a status line', async ($, on) => {
+  const files = new Map<string, string>()
+  world(on, { v: 's1' }, files)
+  statusCalls.length = 0
+  await $.session.measure({
+    context: { window: 200000 },
+    rateLimits: [{ kind: 'five_hour', percentUsed: 43, resetsAt: '2026-10-11T14:00:00.000Z' }],
+    changed: ['rateLimits'],
+  })
+  expect(statusCalls.length).toBe(0)
 })
 
 test('a session with no subscription limits still counts tokens', async ($, on) => {

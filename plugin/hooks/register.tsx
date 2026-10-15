@@ -38,15 +38,6 @@ const isRu = async ($: any) => {
   return lang.startsWith('ru')
 }
 
-const line = (u: Usage, now: number, ru: boolean) => {
-  const cost = u.usd === null ? '' : ` · $${u.usd.toFixed(2)}`
-  return (
-    `${ru ? '5ч' : '5h'}: ${fmtPct(u.fiveHour)}${fmtReset(u.fiveHourResetsAt, now, ru)} · ` +
-    `${ru ? 'нед' : 'wk'}: ${fmtPct(u.sevenDay)}${fmtReset(u.sevenDayResetsAt, now, ru)} · ` +
-    `${ru ? 'токенов' : 'tokens'}: ${fmtTokens(u.tokens)}${cost}`
-  )
-}
-
 const HOUR = 3600_000
 const KEEP = 35 * 24 * HOUR
 
@@ -220,7 +211,6 @@ export const register: Register = on => {
       usd: e.cost?.usd ?? cur.usd,
       limits: e.rateLimits.map(r => ({ kind: r.kind, percentUsed: r.percentUsed, resetsAt: r.resetsAt ?? null })),
     }))
-    $.ui.status(line(await read($, usage), await $.clock.now(), await isRu($)))
     await persist($)
 
     return next(e)
