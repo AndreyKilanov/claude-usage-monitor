@@ -14,5 +14,5 @@ module.exports = {
   REPO_FALLBACK: 'https://github.com/AndreyKilanov/claude-usage-monitor',
   MARKETPLACE: 'claude-usage-monitor',
   PLUGIN_ID: 'usage-monitor@claude-usage-monitor',
-  MARKETPLACE_SOURCE: 'AndreyKilanov/claude-usage-monitor',
+  MARKETPLACE_SOURCE: 'https://github.com/AndreyKilanov/claude-usage-monitor.git',
 }

@@ -32,7 +32,7 @@ test('install: asks first, then runs exactly the install commands, with no shell
   t.log.confirm = 'Install'
   await t.cmds['claudeUsage.setup']()
   assert.deepEqual(t.log.calls.map(c => c.args), [
-    ['plugin', 'marketplace', 'add', 'AndreyKilanov/claude-usage-monitor'],
+    ['plugin', 'marketplace', 'add', 'https://github.com/AndreyKilanov/claude-usage-monitor.git'],
     ['plugin', 'install', 'usage-monitor@claude-usage-monitor', '--scope', 'user'],
     ['plugin', 'marketplace', 'update', 'claude-usage-monitor'], // refresh the version list, or "update" sees nothing new
     ['plugin', 'update', 'usage-monitor@claude-usage-monitor'],
@@ -143,7 +143,7 @@ test('first-run offer: asked once, with three buttons, and nothing runs until th
   yes.start()
   await yes.flush()
   assert.equal(yes.log.calls.length, 0, 'closing the confirmation runs nothing')
-  assert.match(yes.log.warn.at(-1), /plugin marketplace add AndreyKilanov\/claude-usage-monitor/)
+  assert.match(yes.log.warn.at(-1), /plugin marketplace add https:\/\/github\.com\/AndreyKilanov\/claude-usage-monitor\.git/)
 
   const confirmed = withoutPlugin()
   fakeClaude(confirmed.home, '.antigravity-ide', '2.1.296')

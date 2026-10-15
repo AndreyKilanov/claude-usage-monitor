@@ -18,7 +18,7 @@ module.exports = {
   offerText: 'Claude Usage Monitor needs a small plugin for Claude Code to get its numbers; without it the status bar stays empty. Set it up now?',
   offerYes: 'Set up…', offerLater: 'Later', offerNever: "Don't ask again",
   setupTitle: 'Install the usage-monitor plugin',
-  setupAsk: 'Install the usage-monitor plugin for Claude Code?\n\nTwo commands will run with the Claude Code copy bundled in your editor:\n• plugin marketplace add AndreyKilanov/claude-usage-monitor\n• plugin install usage-monitor --scope user\n\nIf an outdated version stays installed, it is removed and installed again from the same source.\n\nThe plugin comes from GitHub (AndreyKilanov/claude-usage-monitor) and only writes limit and token numbers to ~/.claude/usage-monitor.',
+  setupAsk: 'Install the usage-monitor plugin for Claude Code?\n\nTwo commands will run with the Claude Code copy bundled in your editor:\n• plugin marketplace add https://github.com/AndreyKilanov/claude-usage-monitor.git\n• plugin install usage-monitor --scope user\n\nIf an outdated version stays installed, it is removed and installed again from the same source.\n\nThe plugin comes from GitHub (AndreyKilanov/claude-usage-monitor) and only writes limit and token numbers to ~/.claude/usage-monitor.',
   setupYes: 'Install', setupBusy: 'Installing the plugin…',
   setupDone: 'The plugin is installed. Start a NEW Claude session and send a message — numbers appear after the first reply.',
   setupNoClaude: 'Could not find Claude Code on this machine. Install the Claude Code extension (or point to claude manually) and try again.',
