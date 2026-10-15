@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.6 (local, not released)
+
+- **Plugin: nothing is drawn in the Claude interface any more.** The band above the prompt ("From the usage-monitor plugin …") is gone; the plugin only writes the data files the editor extension reads. Limits and tokens stay in the extension's status bar and panel.
+- **Install button:** adds the catalogue by its https address (machines without a GitHub SSH key could not clone it), shows what the update commands answered, and removes and reinstalls the plugin when it stays outdated.
+
 ## 0.6.5
 
 - **Plugin: the limits line is no longer shown twice.** Newer Claude Code versions draw the plugin's status line as a separate row, so the same "5h … · wk … · tokens …" text appeared both there and in the band above the prompt. The status line is gone; the band above the prompt stays. The data the extension reads is unchanged.

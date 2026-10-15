@@ -11,7 +11,7 @@
     {
       "name": "usage-monitor",
       "source": "./plugin",
-      "description": "Writes Claude Code limits and token usage to local files for the editor extension, and shows a band above the prompt in the terminal and desktop app.",
+      "description": "Writes Claude Code limits and token usage to local files for the editor extension. It draws nothing in the Claude interface.",
       "version": "0.6.5",
       "license": "MIT"
     }

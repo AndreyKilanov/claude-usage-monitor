@@ -18,26 +18,6 @@ const empty: Usage = {
 
 const usage = atom({ plugin: 'usage-monitor', key: 'usage' } as const, empty)
 
-const fmtTokens = (n: number) =>
-  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
-
-const fmtPct = (p: number | null) => (p === null ? '—' : `${Math.round(p)}%`)
-
-const fmtReset = (iso: string | null, now: number, ru = true) => {
-  if (!iso) return ''
-  const ms = Date.parse(iso) - now
-  if (Number.isNaN(ms) || ms <= 0) return ''
-  const m = Math.round(ms / 60000)
-  if (m < 60) return ` (${m}${ru ? 'м' : 'm'})`
-  const h = Math.floor(m / 60)
-  return h < 48 ? ` (${h}${ru ? 'ч' : 'h'} ${m % 60}${ru ? 'м' : 'm'})` : ` (${Math.floor(h / 24)}${ru ? 'д' : 'd'})`
-}
-
-const isRu = async ($: any) => {
-  const lang = ((await $.env.get('LC_ALL')) || (await $.env.get('LANG')) || '').toLowerCase()
-  return lang.startsWith('ru')
-}
-
 const HOUR = 3600_000
 const KEEP = 35 * 24 * HOUR
 
@@ -214,31 +194,5 @@ export const register: Register = on => {
     await persist($)
 
     return next(e)
-  })
-
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.props.hasSurvey) return next(e)
-
-    const u = await read($, usage)
-    const now = await $.clock.now()
-    const { Box, Text } = $.ui.resolve(e)
-    const ru = await isRu($)
-    const hot = (p: number | null) => p !== null && p >= 80
-
-    return (
-      <Box>
-        <Text color={hot(u.fiveHour) ? 'red' : undefined}>
-          {ru ? '5ч' : '5h'}: {fmtPct(u.fiveHour)}
-          {fmtReset(u.fiveHourResetsAt, now, ru)}
-        </Text>
-        <Text dimColor> · </Text>
-        <Text color={hot(u.sevenDay) ? 'red' : undefined}>
-          {ru ? 'нед' : 'wk'}: {fmtPct(u.sevenDay)}
-          {fmtReset(u.sevenDayResetsAt, now, ru)}
-        </Text>
-        <Text dimColor> · {ru ? 'токенов' : 'tokens'}: {fmtTokens(u.tokens)}</Text>
-        {u.usd !== null ? <Text dimColor> · ${u.usd.toFixed(2)}</Text> : null}
-      </Box>
-    )
   })
 }

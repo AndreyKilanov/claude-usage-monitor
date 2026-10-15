@@ -49,7 +49,7 @@ Two small parts that talk through plain files on your disk:
 Claude Code ── plugin/ (usage-monitor) ──▶ ~/.claude/usage-monitor/<session>.json ──▶ extension/ ──▶ status bar + panel
 ```
 
-- **plugin/** is a Claude Code plugin. After each reply it writes the limits Claude Code already knows (5-hour, weekly, per-model) and the tokens spent into one file per session. It also draws a small band above the prompt in the terminal and the desktop app.
+- **plugin/** is a Claude Code plugin. After each reply it writes the limits Claude Code already knows (5-hour, weekly, per-model) and the tokens spent into one file per session. It draws nothing in the Claude Code interface.
 - **extension/** is the editor extension. It reads those files and shows them.
 
 Why two parts: the Claude panel inside VS Code-style editors cannot draw custom UI, so the numbers are handed to a normal status-bar item.
@@ -169,7 +169,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 
 Проект состоит из двух небольших частей, которые обмениваются обычными файлами на вашем диске:
 
-- **plugin/** — плагин для Claude Code. После каждого ответа он сохраняет лимиты, которые Claude Code и так знает, и число потраченных токенов (по одному файлу на сессию). Ещё он рисует тонкую полоску над полем ввода в терминале и в приложении Claude для компьютера.
+- **plugin/** — плагин для Claude Code. После каждого ответа он сохраняет лимиты, которые Claude Code и так знает, и число потраченных токенов (по одному файлу на сессию). В интерфейсе Claude Code он ничего не рисует.
 - **extension/** — расширение для редактора. Оно читает эти файлы и показывает их.
 
 Частей две, потому что панель Claude внутри редакторов на базе VS Code не умеет показывать чужие элементы интерфейса. Поэтому плагин передаёт цифры расширению, а то выводит их в обычной строке состояния.
