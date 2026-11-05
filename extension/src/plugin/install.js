@@ -81,4 +81,4 @@ function createSetup({ render }) {
   }
 }
 
-module.exports = { createSetup }
+module.exports = { createSetup, installedVersion, isStale }

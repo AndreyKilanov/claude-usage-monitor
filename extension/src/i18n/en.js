@@ -18,6 +18,8 @@ module.exports = {
   menuPanel: 'Open panel', menuCopy: 'Copy summary', menuRefresh: 'Refresh', menuSettings: 'Settings', menuHelp: 'Help and report a problem', copied: 'Copied:',
   offerText: 'Claude Usage Monitor needs a small plugin for Claude Code to get its numbers; without it the status bar stays empty. Set it up now?',
   offerYes: 'Set up…', offerLater: 'Later', offerNever: "Don't ask again",
+  updateText: (installed, latest) => `The usage-monitor plugin for Claude Code on this computer is ${installed}; ${latest} is out, and parts of the extension need it. Update it? After the update, start a new Claude session.`,
+  updateYes: 'Update…', updateSkip: 'Skip this version',
   setupTitle: 'Install the usage-monitor plugin',
   setupAsk: 'Install the usage-monitor plugin for Claude Code?\n\nTwo commands will run with the Claude Code copy bundled in your editor:\n• plugin marketplace add AndreyKilanov/claude-usage-monitor\n• plugin install usage-monitor --scope user\n\nIf an outdated version stays installed, it is removed and installed again from the same source.\n\nThe plugin comes from GitHub (AndreyKilanov/claude-usage-monitor) and only writes limit and token numbers to ~/.claude/usage-monitor.',
   setupYes: 'Install', setupBusy: 'Installing the plugin…',

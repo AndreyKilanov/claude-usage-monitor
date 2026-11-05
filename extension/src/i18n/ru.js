@@ -18,6 +18,8 @@ module.exports = {
   menuPanel: 'Открыть панель', menuCopy: 'Копировать сводку', menuRefresh: 'Обновить', menuSettings: 'Настройки', menuHelp: 'Справка и обратная связь', copied: 'Скопировано:',
   offerText: 'Claude Usage Monitor нужен небольшой плагин для Claude Code: без него в строке состояния не будет цифр. Настроить сейчас?',
   offerYes: 'Установить…', offerLater: 'Позже', offerNever: 'Больше не спрашивать',
+  updateText: (installed, latest) => `Плагин usage-monitor для Claude Code на этом компьютере — версии ${installed}, а вышла ${latest}, и части расширения нужна именно она. Обновить? После обновления начните новую сессию Claude.`,
+  updateYes: 'Обновить…', updateSkip: 'Пропустить эту версию',
   setupTitle: 'Установить плагин usage-monitor',
   setupAsk: 'Установить плагин usage-monitor для Claude Code?\n\nРасширение выполнит две команды в копии Claude Code, встроенной в ваш редактор:\n• plugin marketplace add AndreyKilanov/claude-usage-monitor\n• plugin install usage-monitor --scope user\n\nЕсли останется устаревшая версия, она будет удалена и установлена заново из того же источника.\n\nПлагин загружается с GitHub (AndreyKilanov/claude-usage-monitor) и лишь записывает значения лимитов и токенов в папку ~/.claude/usage-monitor.',
   setupYes: 'Установить', setupBusy: 'Устанавливаю плагин…',

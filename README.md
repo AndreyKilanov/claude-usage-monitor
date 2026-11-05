@@ -81,6 +81,10 @@ Answer `y` to add the marketplace, then pick the user scope.
 
 Send any message. The numbers appear after the first reply (sessions started before the plugin was installed are not counted).
 
+### Updates
+
+The editor updates the extension; Claude Code updates the plugin — updating one does not update the other. When the plugin on your computer is older than the one the extension expects, the extension offers to update it (*Update… / Later / Skip this version*); you confirm the exact commands before anything runs. To let Claude Code update the plugin by itself, turn on auto-update for the `claude-usage-monitor` marketplace in `/plugin` → Marketplaces. After a plugin update, start a new Claude session.
+
 ## Settings
 
 | Setting | Default | What it does |
@@ -94,7 +98,7 @@ Send any message. The numbers appear after the first reply (sessions started bef
 | `claudeUsage.notifications` | `true` | notify when a threshold is crossed |
 | `claudeUsage.notifyOnReset` | `true` | notify when a limit that was high resets |
 | `claudeUsage.syncFolder` | empty | shared folder to add up several devices |
-| `claudeUsage.offerPluginInstall` | `true` | offer to set the plugin up on the first start when it is missing |
+| `claudeUsage.offerPluginInstall` | `true` | on start, offer to set the plugin up when it is missing, and to update it when a newer one is out |
 | `claudeUsage.csvDelimiter` | `auto` | `auto` (`;` for Russian, `,` otherwise), `,`, `;` or `tab` |
 | `claudeUsage.numberGrouping` | `auto` | `13 240 843` (`auto` follows the language: space for Russian, comma for English), `space`, `dot`, `comma` or `none` |
 | `claudeUsage.refreshIntervalSeconds` | `30` | how often everything is redrawn in full (countdowns, other devices); new numbers from this computer show up within 3 s regardless |
@@ -207,6 +211,8 @@ The extension's install button installs whatever plugin version is on `main` on 
 2. **Расширение:** найдите **Claude Usage Monitor** в Open VSX ([страница расширения](https://open-vsx.org/extension/andreykilanov/claude-usage-monitor); работает в Antigravity, VSCodium, Cursor) или скачайте файл `.vsix` в разделе [Releases](https://github.com/AndreyKilanov/claude-usage-monitor/releases) и установите его: Extensions → **⋯** → *Install from VSIX…*.
 
 3. **Начните новую сессию Claude** и отправьте любое сообщение. Цифры появятся после первого ответа. Сессии, начатые до установки плагина, не учитываются.
+
+**Обновления.** Расширение обновляет редактор, а плагин — Claude Code: обновление одного не обновляет другое. Если плагин на компьютере старее того, под который сделано расширение, оно предложит его обновить («Обновить… / Позже / Пропустить эту версию»), а точные команды вы подтверждаете перед запуском. Чтобы Claude Code обновлял плагин сам, включите автообновление каталога `claude-usage-monitor` в `/plugin` → Marketplaces. После обновления плагина начните новую сессию Claude.
 
 ## Что важно знать
 

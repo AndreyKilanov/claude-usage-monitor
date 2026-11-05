@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.2
+
+- **The extension offers to update the plugin.** Updating the extension does not update the Claude Code plugin: the editor updates extensions, Claude Code updates plugins. Now, when the plugin on this computer (as listed by Claude Code) is older than the one the extension is made for, a notification asks once per start: *Update… / Later / Skip this version*. *Update…* opens the usual setup, which shows the exact commands and runs nothing until you confirm; *Skip this version* stays quiet until a newer plugin is out. It follows the `claudeUsage.offerPluginInstall` setting. Nothing is downloaded without your confirmation.
+- To have Claude Code update the plugin on its own, you can also turn on auto-update for the `claude-usage-monitor` marketplace in Claude Code (`/plugin` → Marketplaces).
+
 ## 0.7.1
 
 - **Tooltip:** the version is back in the top right corner. In 0.7.0 it slid towards the middle when the reset times were aligned; "resets in" and the time are now two columns, so the words line up on the left, the times on the right, and the version sits in the corner. The plugin is unchanged (0.7.0).

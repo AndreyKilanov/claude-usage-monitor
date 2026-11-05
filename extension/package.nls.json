@@ -28,5 +28,5 @@
   "config.clickAction.description": "What a click on the status bar item does.",
   "config.clickAction.enum.0": "Open a small menu: panel, copy summary, export, refresh, data folder, settings, help",
   "config.clickAction.enum.1": "Open the detail panel directly",
-  "config.offerPluginInstall.description": "On the first start, when the Claude Code plugin this extension needs is not installed, offer to set it up (you always confirm the exact commands first)."
+  "config.offerPluginInstall.description": "On start, offer to set up the Claude Code plugin this extension needs when it is not installed, and to update it when a newer version is out (you always confirm the exact commands first)."
 }
