@@ -11,6 +11,7 @@ const empty: Usage = {
   sevenDayResetsAt: null,
   tokens: 0,
   usd: null,
+  costSeen: null,
   buckets: {},
   detail: {},
   limits: [],
@@ -58,18 +59,61 @@ const pluginVersion = async ($: any): Promise<string | null> => {
   return versionCache
 }
 
-const projectName = async ($: any): Promise<string | null> => {
+const sessionCwd = async ($: any): Promise<string | null> => {
   try {
-    return (await $.session.cwd()).split(/[\\/]/).filter(Boolean).pop() || null
+    const cwd = await $.session.cwd()
+    return typeof cwd === 'string' && cwd ? cwd : null
   } catch {
     return null
   }
+}
+
+const projectName = async ($: any): Promise<string | null> =>
+  ((await sessionCwd($)) ?? '').split(/[\\/]/).filter(Boolean).pop() || null
+
+/**
+ * Two projects can share a folder name (two `api` folders of two clients). The full path tells them
+ * apart, but it is not written: the files may be copied to a cloud sync folder. Instead the file gets
+ * a short one-way fingerprint of the path (FNV-1a, 32 bits) and the parent folder's name, enough for
+ * the extension to tell the two apart and to label them `api (client-a)` / `api (client-b)`.
+ * The extension computes the same fingerprint for the folder open in the editor; keep both in step.
+ */
+const projectId = (cwd: string): string => {
+  const normal = cwd.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  let hash = 0x811c9dc5
+  for (let i = 0; i < normal.length; i++) {
+    hash ^= normal.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
+}
+
+const projectWhere = async ($: any): Promise<{ pid: string | null; parent: string | null }> => {
+  const cwd = await sessionCwd($)
+  if (!cwd) return { pid: null, parent: null }
+  const parts = cwd.split(/[\\/]/).filter(Boolean)
+  return { pid: projectId(cwd), parent: parts.length > 1 ? parts[parts.length - 2] : null }
 }
 
 const maxMerge = (a: Record<string, number>, b: Record<string, number>) => {
   const out = { ...a }
   for (const [k, v] of Object.entries(b)) out[k] = Math.max(out[k] ?? 0, Number(v) || 0)
   return out
+}
+
+const money = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? x : null)
+const round6 = (x: number) => Math.round(x * 1e6) / 1e6
+
+/**
+ * How much of a reported cost is new since the last report of the same session.
+ * Claude Code's figure is a running total per session (checked on 2.1.318): it starts at zero
+ * in a new session and after /clear, and a resumed session continues from its earlier total.
+ * So the base is the session's own last figure, kept in its data file; a drop is read as a
+ * restarted counter, so the whole new figure is new spending.
+ */
+const costDelta = (raw: number, previous: number | null) => {
+  if (previous === null || raw < previous) return raw
+  return raw - previous
 }
 
 let hydrated = false
@@ -86,7 +130,6 @@ const adopt = async ($: any) => {
         fiveHourResetsAt: c.fiveHourResetsAt,
         sevenDay: c.sevenDay,
         sevenDayResetsAt: c.sevenDayResetsAt,
-        usd: c.usd,
         limits: c.limits,
       }))
       hydrated = false
@@ -106,13 +149,20 @@ const adopt = async ($: any) => {
       const detail: Usage['detail'] = { ...(old.detail ?? {}) }
       for (const [k, d] of Object.entries(c.detail ?? {})) {
         const o = detail[k] ?? { m: {}, p: {} }
-        detail[k] = { m: maxMerge(o.m, d.m), p: maxMerge(o.p, d.p), k: maxMerge(o.k ?? {}, d.k ?? {}) }
+        const merged: Usage['detail'][string] = { m: maxMerge(o.m, d.m), p: maxMerge(o.p, d.p), k: maxMerge(o.k ?? {}, d.k ?? {}) }
+        const cost = Math.max(money(o.c) ?? 0, money(d.c) ?? 0)
+        if (cost > 0) merged.c = cost
+        detail[k] = merged
       }
+      const oldUsd = money(old.usd)
       return {
         ...c,
         buckets: maxMerge(old.buckets ?? {}, c.buckets),
         detail,
         tokens: Math.max(c.tokens, Number(old.tokens) || 0),
+        usd: c.usd === null ? oldUsd : Math.max(c.usd, oldUsd ?? 0),
+        // files from plugins before 0.7.0 hold Claude Code's own figure in usd and no base
+        costSeen: c.costSeen ?? money(old.costSeen) ?? oldUsd,
       }
     })
   } catch {
@@ -129,7 +179,13 @@ const persist = async ($: any) => {
     const sid = await $.session.id()
     const target = dataFile(home, sid)
     try {
-      await $.fs.write(target, JSON.stringify({ ...u, v: await pluginVersion($), project: await projectName($), updatedAt: now }))
+      await $.fs.write(target, JSON.stringify({
+        ...u,
+        v: await pluginVersion($),
+        project: await projectName($),
+        ...(await projectWhere($)),
+        updatedAt: now,
+      }))
     } catch (err) {
       await diag($, 'error', `could not write ${target}\n${String(err)}`)
     }
@@ -182,15 +238,28 @@ export const register: Register = on => {
     await adopt($)
     const five = e.rateLimits.find(r => r.kind === 'five_hour')
     const week = e.rateLimits.find(r => r.kind === 'seven_day')
-    await update($, usage, cur => ({
-      ...cur,
-      fiveHour: five?.percentUsed ?? null,
-      fiveHourResetsAt: five?.resetsAt ?? null,
-      sevenDay: week?.percentUsed ?? null,
-      sevenDayResetsAt: week?.resetsAt ?? null,
-      usd: e.cost?.usd ?? cur.usd,
-      limits: e.rateLimits.map(r => ({ kind: r.kind, percentUsed: r.percentUsed, resetsAt: r.resetsAt ?? null })),
-    }))
+    const raw = money(e.cost?.usd)
+    const now = await $.clock.now()
+    const hour = String(Math.floor(now / HOUR) * HOUR)
+    await update($, usage, cur => {
+      const measured: Usage = {
+        ...cur,
+        fiveHour: five?.percentUsed ?? null,
+        fiveHourResetsAt: five?.resetsAt ?? null,
+        sevenDay: week?.percentUsed ?? null,
+        sevenDayResetsAt: week?.resetsAt ?? null,
+        limits: e.rateLimits.map(r => ({ kind: r.kind, percentUsed: r.percentUsed, resetsAt: r.resetsAt ?? null })),
+      }
+      if (raw === null) return measured
+      const delta = round6(costDelta(raw, cur.costSeen))
+      measured.costSeen = raw
+      if (delta <= 0) return { ...measured, usd: cur.usd ?? 0 }
+      const detail = { ...(cur.detail ?? {}) }
+      const d = { ...(detail[hour] ?? { m: {}, p: {} }) }
+      d.c = round6((money(d.c) ?? 0) + delta)
+      detail[hour] = d
+      return { ...measured, detail, usd: round6((cur.usd ?? 0) + delta) }
+    })
     await persist($)
 
     return next(e)

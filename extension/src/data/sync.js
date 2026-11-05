@@ -1,3 +1,4 @@
+// @ts-check
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -29,7 +30,7 @@ function pushSync(machineId) {
       try { upToDate = fs.statSync(target).mtimeMs >= stat.mtimeMs } catch {}
       if (upToDate) continue
       const body = fs.readFileSync(source)
-      try { JSON.parse(body) } catch { continue }
+      try { JSON.parse(body.toString('utf8')) } catch { continue }
       const temp = `${target}.tmp`
       fs.writeFileSync(temp, body)
       fs.renameSync(temp, target)

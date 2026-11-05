@@ -1,3 +1,4 @@
+// @ts-check
 const { L } = require('../i18n')
 const { num } = require('../util/numbers')
 

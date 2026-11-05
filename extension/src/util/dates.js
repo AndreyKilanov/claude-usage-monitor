@@ -1,3 +1,4 @@
+// @ts-check
 const dayStart = (now, back) => {
   const date = new Date(now)
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() - back).getTime()

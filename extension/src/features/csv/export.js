@@ -1,3 +1,4 @@
+// @ts-check
 const vscode = require('vscode')
 const fs = require('fs')
 const os = require('os')
@@ -10,7 +11,7 @@ const { buildCsv } = require('./build')
 
 function createCsvExport({ machineId }) {
   return async function exportCsv() {
-    const totals = readTotals(scan(machineId), machineId)
+    const totals = readTotals(scan(machineId), machineId, null, { detailed: false })
     if (!totals.raw.length) return vscode.window.showInformationMessage(L.csvNone)
 
     const pick = await vscode.window.showQuickPick(

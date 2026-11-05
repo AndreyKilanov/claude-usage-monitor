@@ -1,3 +1,4 @@
+// @ts-check
 const vscode = require('vscode')
 const { cfg } = require('../settings')
 const ru = require('./ru')

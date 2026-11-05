@@ -29,3 +29,9 @@ test('structure: src modules never reach into the test or media folders', () => 
     assert.ok(!/require\(['"][^'"]*\/test\//.test(source), path.relative(repo, file))
   }
 })
+
+test('structure: every src module opts in to type checking (npm run typecheck)', () => {
+  for (const file of files(path.join(repo, 'extension', 'src')).filter(name => name.endsWith('.js'))) {
+    assert.ok(fs.readFileSync(file, 'utf8').startsWith('// @ts-check'), path.relative(repo, file))
+  }
+})

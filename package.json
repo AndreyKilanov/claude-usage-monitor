@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test": "node --test \"extension/test/*.test.js\"",
-    "build": "./scripts/build-vsix.sh"
+    "build": "./scripts/build-vsix.sh",
+    "typecheck": "node scripts/typecheck.js"
   }
 }

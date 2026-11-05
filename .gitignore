@@ -6,3 +6,7 @@ node_modules/
 plugin/.claude-plugin/types/
 plugin/tsconfig.json
 plugin/diagnostics.txt
+
+# local only: personal release token, working notes
+.env
+dev_plan/

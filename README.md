@@ -15,10 +15,10 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 
 <p align="center"><a href="#русская-версия">Русская версия ↓</a></p>
 
-<p align="center"><img src="assets/statusbar-bbf6ca0f.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
+<p align="center"><img src="assets/statusbar-559315b3.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
 <p align="center"><sub>The status bar item and its hover tooltip.</sub></p>
 
-<p align="center"><img src="assets/panel-dark-0123ff96.png" width="640" alt="Usage panel, dark theme"></p>
+<p align="center"><img src="assets/panel-dark-1726797c.png" width="640" alt="Usage panel, dark theme"></p>
 <p align="center"><sub>The panel (click the status bar item → menu → Open panel). It follows your editor theme.</sub></p>
 <p align="center"><sub>Mock-ups drawn from the extension's own output with sample data; your editor's fonts will differ a little.</sub></p>
 
@@ -29,17 +29,19 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 | | |
 | --- | --- |
 | **Status bar** | `5h 38% · wk 5% · today 1.2M`; turns yellow / red at 80% / 90% (configurable) |
-| **Hover** | progress bars and the time to reset for the 5-hour and weekly limits |
+| **Hover** | coloured bars and the time to reset for the 5-hour and weekly limits; today's cost at API prices; a note when the data is more than 30 minutes old |
 | **Menu** (click) | panel, copy a one-line summary, export CSV, refresh, open the data folder, settings, install / update the plugin, help |
-| **Panel** | an *All projects / this project* switch, ring gauges, 24-hour / 7-day / 30-day charts, **what the tokens are made of** (cache reads / writes, new input, output), breakdown by model and by project |
+| **Panel** | an *All projects / this project* switch, ring gauges, 24-hour / 7-day / 30-day charts, **what the tokens are made of** (cache reads / writes, new input, output), breakdown by model and by project; **click a bar** to see the breakdown of that hour or day; a comparison with yesterday / the 7 days before; **recent sessions** (click one for its models, token split, cost, time span and device) |
+| **Same-named projects** | two folders called `api` on one computer are two projects, shown as `api (client-a)` and `api (client-b)`; the same project on two synced devices stays one; *this project* follows the folder open in the editor |
+| **Cost** | a *Tokens / Cost* switch in the panel: the cost Claude Code itself reports, by day and by project, at API prices (on a subscription this is not what you are charged) |
 | **Alerts** | a notification when a limit crosses the warning / critical percent, and when it resets |
 | **Forecast** | "at this pace the 5-hour limit runs out in 23 min" — only when it would happen before the reset |
 | **All sessions** | every window and session on the machine is added up, so "today" is the real total |
 | **Many devices** | optional shared folder (iCloud Drive, Dropbox, Syncthing…) adds up your other machines |
-| **CSV export** | by day and model, by day and project, or raw rows; opens cleanly in Excel / Numbers |
+| **CSV export** | by day and model, by day and project, or raw rows, with a cost column once cost is recorded; opens cleanly in Excel / Numbers |
 | **Languages** | Russian and English, picked from the editor language |
 
-<p align="center"><img src="assets/panel-light-49644f56.png" width="640" alt="Usage panel, light theme, 30 days, only the open project"></p>
+<p align="center"><img src="assets/panel-light-f6bed58b.png" width="640" alt="Usage panel, light theme, 30 days, only the open project"></p>
 
 ## How it works
 
@@ -54,7 +56,7 @@ Claude Code ── plugin/ (usage-monitor) ──▶ ~/.claude/usage-monitor/<se
 
 Why two parts: the Claude panel inside VS Code-style editors cannot draw custom UI, so the numbers are handed to a normal status-bar item.
 
-**Nothing leaves your computer.** No network calls, no sign-in, no tokens or keychain access. The extension only reads the files above. If you turn on the optional sync folder, it copies those same files there — they contain token counts and the names of your project folders.
+**Nothing leaves your computer.** No network calls, no sign-in, no tokens or keychain access. The extension only reads the files above. If you turn on the optional sync folder, it copies those same files there — they contain token counts, the names of your project folders and of their parent folders, and a short fingerprint of each folder's path, used to tell same-named projects apart. The path itself is not written; the fingerprint cannot be turned back into it, though a guessed path can be checked against it.
 
 ## Install
 
@@ -87,6 +89,7 @@ Send any message. The numbers appear after the first reply (sessions started bef
 | `claudeUsage.clickAction` | `menu` | what a click on the status bar item does: `menu` or `panel` |
 | `claudeUsage.showFiveHour` / `showWeek` / `showToday` | `true` | choose what the status bar shows |
 | `claudeUsage.showResetTimer` | `false` | time to reset next to the 5-hour percentage |
+| `claudeUsage.showWeekResetTimer` | `false` | time to reset next to the weekly percentage |
 | `claudeUsage.warnAt` / `critAt` | `80` / `90` | yellow and red thresholds |
 | `claudeUsage.notifications` | `true` | notify when a threshold is crossed |
 | `claudeUsage.notifyOnReset` | `true` | notify when a limit that was high resets |
@@ -94,7 +97,7 @@ Send any message. The numbers appear after the first reply (sessions started bef
 | `claudeUsage.offerPluginInstall` | `true` | offer to set the plugin up on the first start when it is missing |
 | `claudeUsage.csvDelimiter` | `auto` | `auto` (`;` for Russian, `,` otherwise), `,`, `;` or `tab` |
 | `claudeUsage.numberGrouping` | `auto` | `13 240 843` (`auto` follows the language: space for Russian, comma for English), `space`, `dot`, `comma` or `none` |
-| `claudeUsage.refreshIntervalSeconds` | `30` | how often the bar redraws (files are also watched every 3 s) |
+| `claudeUsage.refreshIntervalSeconds` | `30` | how often everything is redrawn in full (countdowns, other devices); new numbers from this computer show up within 3 s regardless |
 
 Commands (Command Palette): **Claude Usage: Open Panel**, **Refresh**, **Export CSV**.
 
@@ -103,6 +106,8 @@ Commands (Command Palette): **Claude Usage: Open Panel**, **Refresh**, **Export 
 - **Percentages are account-wide**, the same on every device. **Tokens are counted per machine** unless you set a sync folder.
 - Token counts include cache reads, so the numbers are large. Go by the percentages for how much of your limit is left.
 - Claude Code hands plugins the 5-hour and the weekly limit only. The separate weekly Sonnet / Opus limits that some plans have are not available to this tool, so they are not shown (the panel would show any further window automatically if Claude Code ever reports it).
+- **Cost is what Claude Code reports, at API prices.** No price list is built in and nothing is looked up online. On a Pro / Max / Team subscription it shows what the same usage would cost through the API, not what you pay. Cost is recorded by plugin 0.7.0 and newer; the panel marks a period that has older, cost-less data in it.
+- Session files older than 36 days are deleted, on this machine and from this machine's folder inside the sync folder. Other devices clean up their own.
 - Needs a Claude subscription that reports usage windows. On other setups the percentages show "—" and tokens still count.
 - Developed and tested on macOS. Windows is supported (home folder from `USERPROFILE`) but only covered by automated tests, not by daily use; Linux is untested. Please [open an issue](https://github.com/AndreyKilanov/claude-usage-monitor/issues) if something is off.
 
@@ -128,9 +133,20 @@ cd claude-usage-monitor
 claude plugin validate plugin   # plugin checks
 claude plugin test plugin       # plugin tests
 node --test "extension/test/*.test.js"   # extension tests
+npm run typecheck              # type-check extension/src (// @ts-check)
 ```
 
-No dependencies and no build step: the extension is a single JavaScript file.
+`npm run typecheck` needs no install: it uses the TypeScript, `@types/node` and VS Code API types found in `node_modules` or in an installed VS Code-based editor. Some editors ship `@types/node` without its definitions; then point `NODE_TYPES_DIR` at any full copy, or run `npm i --no-save typescript @types/node @types/vscode` once.
+
+No dependencies and no build step: the extension is plain JavaScript.
+
+### Releasing
+
+The extension's install button installs whatever plugin version is on `main` on GitHub, and the extension knows which version to expect (`LATEST_PLUGIN` in `extension/src/constants.js`). So the order matters:
+
+1. Bump the version in `plugin/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `LATEST_PLUGIN` and `extension/package.json` (a test checks the first three agree).
+2. Push to `main` and check that `claude plugin install usage-monitor@claude-usage-monitor` installs the new plugin version.
+3. Only then publish the `.vsix` (Open VSX, GitHub Releases). Published earlier, the extension would see the old plugin as outdated, and its install button could only reinstall the same old version.
 
 ## License
 
@@ -144,10 +160,10 @@ No dependencies and no build step: the extension is a single JavaScript file.
 
 > **Неофициальный проект.** Он не связан с Anthropic и не одобрен ею. Название «Claude» принадлежит правообладателю и указано лишь затем, чтобы было понятно, с чем работает инструмент.
 
-<p align="center"><img src="assets/statusbar-ru-0ed9a197.png" width="700" alt="Элемент строки состояния и его подсказка: лимиты, токены, версия"></p>
+<p align="center"><img src="assets/statusbar-ru-f1b581db.png" width="700" alt="Элемент строки состояния и его подсказка: лимиты, токены, версия"></p>
 <p align="center"><sub>Элемент строки состояния и подсказка при наведении.</sub></p>
 
-<p align="center"><img src="assets/panel-ru-3c6ac3de.png" width="640" alt="Панель расхода, тёмная тема"></p>
+<p align="center"><img src="assets/panel-ru-6275661c.png" width="640" alt="Панель расхода, тёмная тема"></p>
 <p align="center"><sub>Панель (клик по строке состояния → меню → «Открыть панель»). Скриншоты нарисованы по настоящему выводу расширения на тестовых данных; шрифты в вашем редакторе будут немного другими.</sub></p>
 
 ## Что умеет
@@ -155,14 +171,16 @@ No dependencies and no build step: the extension is a single JavaScript file.
 | | |
 | --- | --- |
 | **Строка состояния** | `5ч 38% · нед 5% · сегодня 1.2M`. При 80% становится жёлтой, при 90% красной (пороги настраиваются) |
-| **Подсказка** | шкалы лимитов (5 часов и неделя) и время до сброса |
+| **Подсказка** | цветные шкалы лимитов (5 часов и неделя) и время до сброса; стоимость за сегодня по ценам API; пометка, если данным больше 30 минут |
 | **Меню** (по клику) | панель, копирование краткой сводки, экспорт в CSV, обновление, открыть папку с данными, настройки, установка и обновление плагина, справка |
-| **Панель** | переключатель «Все проекты / этот проект», кольца лимитов, графики за сутки, 7 и 30 дней, **состав токенов** (чтение и запись кэша, новый запрос, ответ), расход по моделям и по проектам |
+| **Панель** | переключатель «Все проекты / этот проект», кольца лимитов, графики за сутки, 7 и 30 дней, **состав токенов** (чтение и запись кэша, новый запрос, ответ), расход по моделям и по проектам; **клик по столбцу** показывает разбивку за этот час или день; сравнение со вчерашним днём и с предыдущими 7 днями; **последние сессии** (по клику — модели, состав токенов, стоимость, время работы и устройство) |
+| **Одноимённые проекты** | две папки `api` на одном компьютере — это два проекта, они показываются как `api (client-a)` и `api (client-b)`; один и тот же проект на двух синхронизированных устройствах остаётся одним; «этот проект» следует за папкой, открытой в редакторе |
+| **Стоимость** | переключатель «Токены / Стоимость» в панели: стоимость, которую сообщает сам Claude Code, по дням и проектам, по ценам API (на подписке эту сумму с вас не списывают) |
 | **Оповещения** | уведомление, когда лимит достигает порога, и когда он сбрасывается |
 | **Прогноз** | «при таком темпе 5-часовой лимит закончится через 23 мин». Показывается, только если лимит кончится раньше сброса |
 | **Все сессии** | токены из всех окон и сессий на компьютере складываются, так что «сегодня» — это настоящий итог за день |
 | **Несколько устройств** | по желанию можно указать общую папку (iCloud Drive, Dropbox, Syncthing…): тогда суммируются все ваши компьютеры |
-| **Экспорт в CSV** | по дням и моделям, по дням и проектам или «сырые» строки. Файл нормально открывается в Excel и Numbers |
+| **Экспорт в CSV** | по дням и моделям, по дням и проектам или «сырые» строки, а когда стоимость записана — ещё и с ней. Файл нормально открывается в Excel и Numbers |
 | **Языки** | русский и английский, выбираются по языку редактора |
 
 ## Как это устроено
@@ -174,7 +192,7 @@ No dependencies and no build step: the extension is a single JavaScript file.
 
 Частей две, потому что панель Claude внутри редакторов на базе VS Code не умеет показывать чужие элементы интерфейса. Поэтому плагин передаёт цифры расширению, а то выводит их в обычной строке состояния.
 
-**Данные не покидают компьютер.** Расширение не обращается в сеть, не просит войти в аккаунт и не трогает ключи и пароли. Если вы включите папку синхронизации, расширение скопирует в неё те же файлы, а в них записаны количество токенов и названия папок ваших проектов.
+**Данные не покидают компьютер.** Расширение не обращается в сеть, не просит войти в аккаунт и не трогает ключи и пароли. Если вы включите папку синхронизации, расширение скопирует в неё те же файлы, а в них записаны количество токенов, названия папок ваших проектов и их родительских папок, а также короткий отпечаток пути к папке, по которому различаются одноимённые проекты. Сам путь не записывается; восстановить его по отпечатку нельзя, но угаданный путь по нему можно проверить.
 
 ## Установка
 
@@ -195,6 +213,8 @@ No dependencies and no build step: the extension is a single JavaScript file.
 - **Проценты лимитов относятся ко всему аккаунту**, поэтому на всех устройствах они одинаковые. **Токены считаются отдельно на каждом компьютере**, пока вы не задали папку синхронизации.
 - В число токенов входит чтение кэша, и поэтому оно получается очень большим. Сколько осталось до лимита, лучше судить по процентам.
 - Claude Code передаёт плагинам только 5-часовой и недельный лимиты. Отдельные недельные лимиты Sonnet и Opus, которые есть в некоторых тарифах, этому инструменту недоступны, поэтому они не показываются (если Claude Code начнёт сообщать и их, панель покажет их сама).
+- **Стоимость берётся у самого Claude Code, по ценам API.** Таблицы цен внутри нет, и в интернет за ней ничего не ходит. На подписке Pro / Max / Team это сумма, в которую обошёлся бы тот же расход через API, а не то, что вы платите. Стоимость записывает плагин версии 0.7.0 и новее; если в периоде есть более старые записи без стоимости, панель об этом предупредит.
+- Файлы сессий старше 36 дней удаляются — на этом компьютере и в его собственной папке внутри папки синхронизации. Другие устройства чистят свои папки сами.
 - Проект разрабатывался и проверялся на macOS. Windows поддерживается (домашняя папка определяется по `USERPROFILE`), но проверена в основном автотестами. Linux не проверялся. Если что-то работает неправильно, [создайте обращение](https://github.com/AndreyKilanov/claude-usage-monitor/issues).
 
 ## Если в строке состояния «нет данных»

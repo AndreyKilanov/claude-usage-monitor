@@ -1,3 +1,4 @@
+// @ts-check
 function forecast(history, usage) {
   const now = Date.now()
   const points = history.filter(s => now - s.t < 3600_000)

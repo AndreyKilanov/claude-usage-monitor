@@ -12,19 +12,22 @@ const usageOf = (model: string, n: number) => ({
 
 const statusCalls: unknown[] = []
 
+// On Windows the engine hands hooks native paths (C:\home\u\...); the tests keep POSIX keys.
+const posix = (p: string) => p.replace(/^[A-Za-z]:(?=\\)/, '').replace(/\\/g, '/')
+
 const world = (on: any, sid: { v: string }, files: Map<string, string>) => {
   mock.clock(on, { now: NOW })
   mock.env(on, { HOME: '/home/u', LANG: 'en_US.UTF-8' })
   on('session.id', () => ({ value: sid.v }))
   on('session.cwd', () => ({ value: '/work/my-project' }))
   on('fs.write', (_$: any, e: any) => {
-    files.set(e.path, e.text)
+    files.set(posix(e.path), e.text)
     return { value: undefined }
   })
   on('fs.read', (_$: any, e: any) => {
-    if (e.path.endsWith('.claude-plugin/plugin.json') && files.has('MANIFEST')) return { value: files.get('MANIFEST') }
-    if (!files.has(e.path)) throw new Error('ENOENT')
-    return { value: files.get(e.path) }
+    if (posix(e.path).endsWith('.claude-plugin/plugin.json') && files.has('MANIFEST')) return { value: files.get('MANIFEST') }
+    if (!files.has(posix(e.path))) throw new Error('ENOENT')
+    return { value: files.get(posix(e.path)) }
   })
   on('ui.status', (_$: any, e: any) => {
     statusCalls.push(e)
@@ -192,8 +195,8 @@ test('a note in the plugin folder says the plugin loaded, and what failed when a
   on('session.cwd', () => ({ value: '/p' }))
   on('fs.read', () => { throw new Error('ENOENT') })
   on('fs.write', (_$: any, e: any) => {
-    if (e.path.includes('/.claude/usage-monitor/')) return { deny: 'EACCES: permission denied' }
-    files.set(e.path, e.text)
+    if (posix(e.path).includes('/.claude/usage-monitor/')) return { deny: 'EACCES: permission denied' }
+    files.set(posix(e.path), e.text)
     return { value: undefined }
   })
   on('session.start', (_$: any, e: any) => ({ cwd: e.cwd }))
@@ -204,7 +207,7 @@ test('a note in the plugin folder says the plugin loaded, and what failed when a
   expect(note).toBeDefined()
   expect(note![1]).toContain('error at')
   expect(note![1]).toContain('EACCES')
-  expect(note![1]).toContain('/home/u/.claude/usage-monitor/s1.json')
+  expect(posix(note![1])).toContain('/home/u/.claude/usage-monitor/s1.json')
 })
 
 const mixed = (i: number, o: number, w: number, r: number) => ({ model: 'm', input_tokens: i, output_tokens: o, cache_creation_input_tokens: w, cache_read_input_tokens: r })
@@ -249,7 +252,7 @@ test('an unreadable manifest gives a null version, never a failure; a Windows cw
   on('session.id', () => ({ value: 's1' }))
   on('session.cwd', () => ({ value: 'C:\\work\\client app' }))
   on('fs.write', (_$: any, e: any) => {
-    files.set(e.path, e.text)
+    files.set(posix(e.path), e.text)
     return { value: undefined }
   })
   on('fs.read', () => { throw new Error('ENOENT') })
@@ -258,5 +261,114 @@ test('an unreadable manifest gives a null version, never a failure; a Windows cw
   const f = fileOf(files, 's1')
   expect(f.v).toBe(null)
   expect(f.project).toBe('client app')
+  expect(f.pid).toBe('551fe0c1')
+  expect(f.parent).toBe('work')
   expect(f.tokens).toBe(10)
+})
+
+const measureCost = ($: any, usd: number | undefined) =>
+  $.session.measure({ context: { window: 200000 }, rateLimits: [], ...(usd === undefined ? {} : { cost: { usd } }), changed: ['cost'] })
+const hourOf = (ms: number) => String(Math.floor(ms / HOUR) * HOUR)
+
+test('the data file holds the project folder name only, never the full path', async ($, on) => {
+  const files = new Map<string, string>()
+  world(on, { v: 's1' }, files)
+  await complete($, usageOf('m', 10))
+  const text = files.get('/home/u/.claude/usage-monitor/s1.json') ?? ''
+  expect(text.includes('/work/my-project')).toBe(false)
+  expect(fileOf(files, 's1').cwd).toBe(undefined)
+})
+
+test('same-named projects: a one-way fingerprint of the path and the parent folder name are written instead of the path', async ($, on) => {
+  const files = new Map<string, string>()
+  world(on, { v: 's1' }, files)
+  await complete($, usageOf('m', 10))
+  const f = fileOf(files, 's1')
+  // the extension computes the same value for the open folder (extension/src/util/projects.js)
+  expect(f.pid).toBe('3caa0aaa')
+  expect(f.parent).toBe('work')
+})
+
+test('cost: each increase Claude Code reports lands in the hour it was reported, and adds up to the session cost', async ($, on) => {
+  const files = new Map<string, string>()
+  world(on, { v: 's1' }, files)
+  await measureCost($, 0.4)
+  await measureCost($, 0.4)
+  await measureCost($, 1.25)
+  const f = fileOf(files, 's1')
+  expect(f.detail[hourOf(NOW)].c).toBe(1.25)
+  expect(f.usd).toBe(1.25)
+})
+
+test('cost: a report without a cost or with a broken one changes nothing', async ($, on) => {
+  const files = new Map<string, string>()
+  world(on, { v: 's1' }, files)
+  await measureCost($, 2)
+  await measureCost($, undefined)
+  await measureCost($, Number.NaN)
+  await measureCost($, -3)
+  const f = fileOf(files, 's1')
+  expect(f.usd).toBe(2)
+  expect(f.detail[hourOf(NOW)].c).toBe(2)
+})
+
+test('cost: after /clear the new session counts its own figure from zero and never inherits the previous cost', async ($, on) => {
+  const files = new Map<string, string>()
+  const sid = { v: 's1' }
+  world(on, sid, files)
+  await measureCost($, 3)
+  sid.v = 's2'
+  await complete($, usageOf('m', 10))
+  expect(fileOf(files, 's2').usd).toBe(null)
+  await measureCost($, 0.5)
+  const f = fileOf(files, 's2')
+  expect(f.usd).toBe(0.5)
+  expect(f.detail[hourOf(NOW)].c).toBe(0.5)
+  expect(fileOf(files, 's1').usd).toBe(3)
+})
+
+test('cost: two sessions taking turns in one process keep separate running totals', async ($, on) => {
+  const files = new Map<string, string>()
+  const sid = { v: 's1' }
+  world(on, sid, files)
+  await measureCost($, 1)
+  sid.v = 's2'
+  await measureCost($, 2)
+  sid.v = 's1'
+  await measureCost($, 1.5)
+  expect(fileOf(files, 's1').usd).toBe(1.5)
+  expect(fileOf(files, 's1').detail[hourOf(NOW)].c).toBe(1.5)
+  expect(fileOf(files, 's2').usd).toBe(2)
+})
+
+test('cost: a figure that drops within a session is a restarted counter, so all of it is new spending', async ($, on) => {
+  const files = new Map<string, string>()
+  world(on, { v: 's1' }, files)
+  await measureCost($, 3)
+  await measureCost($, 0.2)
+  expect(fileOf(files, 's1').usd).toBe(3.2)
+})
+
+test('cost: a resumed session continues from the cost its file holds, without counting it twice', async ($, on) => {
+  const files = new Map<string, string>()
+  const hour = hourOf(NOW)
+  files.set('/home/u/.claude/usage-monitor/s1.json', JSON.stringify({ tokens: 10, usd: 2, buckets: { [hour]: 10 }, detail: { [hour]: { m: { m: 10 }, p: { p: 10 }, c: 2 } }, updatedAt: NOW - 1 }))
+  world(on, { v: 's1' }, files)
+  await measureCost($, 2.5)
+  const f = fileOf(files, 's1')
+  expect(f.usd).toBe(2.5)
+  expect(f.detail[hour].c).toBe(2.5)
+})
+
+test('cost: a resumed session continues from the base its file recorded', async ($, on) => {
+  const files = new Map<string, string>()
+  const now = Number(hourOf(NOW))
+  const earlier = String(now - 2 * HOUR)
+  files.set('/home/u/.claude/usage-monitor/s1.json', JSON.stringify({ v: '0.7.0', tokens: 10, usd: 2, costSeen: 2, buckets: { [earlier]: 10 }, detail: { [earlier]: { m: { m: 10 }, p: { p: 10 }, c: 2 } }, updatedAt: NOW - 1 }))
+  world(on, { v: 's1' }, files)
+  await measureCost($, 2.75)
+  const f = fileOf(files, 's1')
+  expect(f.usd).toBe(2.75)
+  expect(f.detail[String(now)].c).toBe(0.75)
+  expect(f.detail[earlier].c).toBe(2)
 })

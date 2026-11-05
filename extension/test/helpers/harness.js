@@ -113,6 +113,7 @@ function loadExtension(editor, log) {
 function setup({ lang = 'en', config = {}, store = {} } = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cum-'))
   process.env.HOME = home
+  process.env.USERPROFILE = home
   const sessDir = path.join(home, '.claude', 'usage-monitor')
   fs.mkdirSync(sessDir, { recursive: true })
 

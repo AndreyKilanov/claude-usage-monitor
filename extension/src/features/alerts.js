@@ -1,3 +1,4 @@
+// @ts-check
 const vscode = require('vscode')
 const { L } = require('../i18n')
 const { cfg } = require('../settings')
@@ -9,7 +10,9 @@ const RESET_TOLERANCE_MS = 600_000
 function createAlerts(context) {
   return function alerts(usage) {
     if (!cfg('notifications', true)) return
-    const seen = context.globalState.get('alerts', {})
+    const stored = context.globalState.get('alerts', {})
+    const before = JSON.stringify(stored)
+    const seen = stored && typeof stored === 'object' ? JSON.parse(before) : {}
     const warnAt = cfg('warnAt', 80)
     const critAt = cfg('critAt', 90)
 
@@ -33,7 +36,8 @@ function createAlerts(context) {
       state.resetsAt = state.resetsAt || window.resetsAt
       seen[window.kind] = state
     }
-    context.globalState.update('alerts', seen)
+    // the editor writes its state to disk on every update; skip it when nothing changed
+    if (JSON.stringify(seen) !== before) context.globalState.update('alerts', seen)
   }
 }
 

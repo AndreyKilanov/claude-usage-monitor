@@ -1,3 +1,4 @@
+// @ts-check
 const { L } = require('../i18n')
 const { MIN_PLUGIN, REPO_FALLBACK } = require('../constants')
 

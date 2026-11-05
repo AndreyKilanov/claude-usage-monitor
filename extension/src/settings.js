@@ -1,3 +1,4 @@
+// @ts-check
 const vscode = require('vscode')
 
 const cfg = (key, fallback) => vscode.workspace.getConfiguration('claudeUsage').get(key, fallback)

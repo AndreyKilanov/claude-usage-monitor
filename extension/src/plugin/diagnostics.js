@@ -1,3 +1,4 @@
+// @ts-check
 const fs = require('fs')
 const path = require('path')
 const { L } = require('../i18n')
@@ -14,10 +15,14 @@ function pluginListed() {
 }
 
 function findPluginNote() {
+  /** @type {[string, number][]} */
   const stack = [[path.join(DIR, 'plugins'), 0]]
   let visited = 0
   while (stack.length && visited < 3000) {
-    const [dir, depth] = stack.pop()
+    const next = stack.pop()
+    if (!next) break
+    const [dir, depth] = next
+    /** @type {import('fs').Dirent[]} */
     let entries = []
     try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { continue }
     for (const entry of entries) {
@@ -32,18 +37,32 @@ function findPluginNote() {
   return null
 }
 
-function noDataHelp() {
-  let files = []
-  let folderExists = true
+function folderState() {
   try {
-    files = fs.readdirSync(SESS).filter(name => name.endsWith('.json'))
+    return { folderExists: true, fileCount: fs.readdirSync(SESS).filter(name => name.endsWith('.json')).length }
   } catch {
-    folderExists = false
+    return { folderExists: false, fileCount: 0 }
   }
+}
+
+/** The same explanation as the tooltip's, as plain text for the panel. */
+function noDataPlain() {
+  const { folderExists, fileCount } = folderState()
+  const note = findPluginNote()
+  return {
+    tip: L.noDataTip,
+    why: !folderExists ? L.noFolder : fileCount === 0 ? L.noFiles : L.noReadable,
+    note: note ? `${L.pluginSays}\n${note}` : !folderExists ? L.pluginSilent : '',
+    where: `${L.lookingIn} ${SESS}`,
+  }
+}
+
+function noDataHelp() {
+  const { folderExists, fileCount } = folderState()
 
   let why = L.noReadable
   if (!folderExists) why = `${L.noFolder}\n\n\`/plugin install usage-monitor --marketplace AndreyKilanov/claude-usage-monitor\`\n\n**${L.setupClick}**`
-  else if (files.length === 0) why = L.noFiles
+  else if (fileCount === 0) why = L.noFiles
 
   const note = findPluginNote()
   let fromPlugin = ''
@@ -53,4 +72,4 @@ function noDataHelp() {
   return [L.noDataTip, why, fromPlugin, `${L.lookingIn}\n\n\`${SESS}\``].filter(Boolean).join('\n\n')
 }
 
-module.exports = { pluginListed, findPluginNote, noDataHelp }
+module.exports = { pluginListed, findPluginNote, noDataHelp, noDataPlain }

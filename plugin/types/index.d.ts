@@ -3,6 +3,10 @@ export type Usage = {
   v?: string | null
   /** folder name of the session's working directory, written into the data file */
   project?: string | null
+  /** one-way fingerprint of the full working directory (FNV-1a, 8 hex digits): tells same-named projects apart */
+  pid?: string | null
+  /** name of the working directory's parent folder, to label same-named projects */
+  parent?: string | null
   /** id of the session these counters belong to */
   sid: string | null
   fiveHour: number | null
@@ -10,13 +14,17 @@ export type Usage = {
   sevenDay: number | null
   sevenDayResetsAt: string | null
   tokens: number
+  /** cost of this session in USD at API prices, summed from the increases Claude Code reported */
   usd: number | null
+  /** the last cost figure Claude Code reported for this session, the base for the next increase */
+  costSeen: number | null
   /** tokens spent per hour of this session, keyed by the hour's start in ms */
   buckets: Record<string, number>
-  /** every rate-limit window the last response reported (five_hour, seven_day, seven_day_sonnet, ...) */
   /** per hour of this session: tokens by model and by project folder */
   /** `k` splits the hour's tokens by kind: i = new input, o = output, w = cache writes, r = cache reads */
-  detail: Record<string, { m: Record<string, number>; p: Record<string, number>; k?: Record<string, number> }>
+  /** `c` is the cost in USD added during the hour */
+  detail: Record<string, { m: Record<string, number>; p: Record<string, number>; k?: Record<string, number>; c?: number }>
+  /** every rate-limit window the last response reported (five_hour, seven_day, seven_day_sonnet, ...) */
   limits: { kind: string; percentUsed: number; resetsAt: string | null }[]
 }
 

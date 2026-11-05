@@ -1,3 +1,4 @@
+// @ts-check
 const vscode = require('vscode')
 const { L } = require('../i18n')
 const { cfg } = require('../settings')

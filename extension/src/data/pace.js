@@ -1,3 +1,4 @@
+// @ts-check
 const { DAY } = require('../constants')
 
 const WINDOW_MS = { seven_day: 7 * DAY }

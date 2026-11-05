@@ -116,7 +116,7 @@ test('tooltip: the header row is a real table row that lines up with the limit r
     assert.equal(table.length, 4, 'header, alignment, two limit rows')
     const cols = row => row.split(/(?<!\\)\|/).length - 2
     assert.deepEqual(table.map(cols), [4, 4, 4, 4], `${lang}: every row has the same four cells`)
-    assert.match(table[1], /^\|:--\|:--\|--:\|--:\|$/)
+    assert.match(table[1], /^\|:--\|:--\|--:\|:--\|$/, 'the reset times line up on the left')
     assert.match(table[2], /\| (5h|5 ч|[^|]*) \|/)
     assert.match(table[2].split('|')[4], /\S/, 'the reset text is in the last column')
   }

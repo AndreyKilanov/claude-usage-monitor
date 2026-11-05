@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.7.0
+
+**Update the plugin** (menu → *Install the usage-monitor plugin*) and start a new Claude session to get cost; everything else works with the old plugin too.
+
+- **Cost.** A *Tokens / Cost* switch in the panel shows cost by day and by project, and the tooltip shows today's cost. The figure is the one Claude Code itself reports; no price list is built in and nothing is looked up online. It is labelled "at API prices": on a Pro / Max / Team subscription it is not what you are charged. Cost is not split by model, because Claude Code reports it per session. A period that contains data from an older plugin is marked as incomplete. The CSV export gets a cost column once there is cost.
+- **Plugin 0.7.0:** records each increase of the session cost in the hour it happened. Claude Code's figure is a running total per session (it restarts after `/clear` and continues when a session is resumed, checked on Claude Code 2.1.318), so the plugin keeps the last figure of each session in its file and counts only the increase: a resumed session is not counted twice, and a new session after `/clear` no longer starts with the previous session's cost.
+- **Panel:**
+  - click a bar to see the token split, models and projects of that hour or day; click again or *Show the whole period* to go back;
+  - a comparison under the total: today against yesterday up to the same time, 7 days against the 7 before;
+  - the session count follows the tab (it used to show today's count on the 7- and 30-day tabs);
+  - "today" shows the average per active hour instead of a "per day" figure equal to the total;
+  - the header says how old the data is instead of when the page was redrawn, and warns after 30 minutes without new data;
+  - reset times and the forecast in the panel also give the clock time ("resets in 1 h 32 min · at 23:40"), and keep counting down between updates;
+  - the limit rings are now 270° gauges with a coloured gradient (green / yellow / red by the same thresholds);
+  - the switches are shorter (*All*, *$*, a long project name is cut with the full name on hover), so they fit one line in Russian too;
+  - the clicked bar stands out clearly (bright, outlined, its label in bold) and the others fade;
+  - the highest bar's value is written above the chart;
+  - with no data the panel explains why and offers to install the plugin, instead of staying blank;
+  - **recent sessions**: the last ten, newest first, with project, last reply, active hours, top model, tokens and cost; click one for its models, token split, time span, cost, device and id. The list follows the *All / this project* switch.
+- **Same-named projects are told apart.** Two folders called `api` in different places used to be added up as one project. Plugin 0.7.0 writes a one-way fingerprint of the folder's path and the parent folder's name (not the path itself, since the files may go to a sync folder); the panel and the CSV show `api (client-a)` and `api (client-b)`, and *this project* follows the folder open in the editor. Fingerprints only compare within one device: the same project on two synced devices sits at two paths and stays one project (when one device has two `api` folders, the parent folder name links the other device to the right one). Older files, without a fingerprint, keep matching by name.
+- **Status bar:** new setting `claudeUsage.showWeekResetTimer`; the tooltip shows today's cost on a line of its own (only when all of today's data has cost) and says when the data is more than 30 minutes old. Clock times and the cost explanations stay in the panel, so the tooltip stays narrow.
+- **Tooltip limit bars** are drawn as small rounded bars in green / yellow / red (the same thresholds as the status bar) instead of `▰▱` characters, which looked different in every editor font. They are inline images in the tooltip itself, nothing is loaded from the network; an editor that does not show them shows the percentage instead.
+- **Lighter on the editor:** the 3-second check now only looks at file times on this machine and redraws when something changed; the per-bar split and the open project's totals are only worked out while the panel is open; `refreshIntervalSeconds` really sets the full redraw now (before, everything was redrawn every 3 seconds whatever it said). Files are copied to the sync folder only when they change, alert state is saved only when it changes, and the panel is sent new numbers only when they differ.
+- **Cleanup:** files older than 36 days are deleted once an hour by a separate step (before, reading the totals deleted them), and this machine's old copies in the sync folder are deleted too — that folder used to grow forever. The in-memory file cache forgets deleted files.
+- **Type checking:** every module in `extension/src` is marked `// @ts-check`, and `npm run typecheck` checks them with TypeScript found in `node_modules` or in an installed editor, without installing anything. It found and fixed a sync step that parsed a raw buffer instead of text.
+- Tests: the extension tests isolate the home folder on Windows too (they used to read the real `~/.claude` there); the plugin tests run on Windows. 119 extension tests, 26 plugin tests.
+
 ## 0.6.7
 
 - **Install button fixed.** 0.6.6 added the catalogue by an https address, but Claude Code remembers the catalogue as `AndreyKilanov/claude-usage-monitor` in your settings and refuses a different address ("its source doesn't match its extraKnownMarketplaces entry"). The button uses the original address again.

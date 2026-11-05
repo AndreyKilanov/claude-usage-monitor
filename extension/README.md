@@ -7,10 +7,10 @@ Your Claude Code <b>5-hour</b> and <b>weekly</b> limits, tokens by <b>day, model
 alerts and a pace forecast — right in the status bar of VS Code, Antigravity and Cursor.
 </p>
 
-<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/statusbar-bbf6ca0f.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/statusbar-559315b3.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
 <p align="center"><sub>The status bar item and its hover tooltip.</sub></p>
 
-<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/panel-dark-0123ff96.png" width="640" alt="Usage panel, dark theme"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/panel-dark-1726797c.png" width="640" alt="Usage panel, dark theme"></p>
 <p align="center"><sub>The panel follows your editor theme. Mock-ups drawn from the extension's own output with sample data.</sub></p>
 
 > **Unofficial.** Not affiliated with or endorsed by Anthropic. "Claude" is a trademark of its owner; it is used here only to say what the tool works with.
@@ -20,16 +20,17 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 | | |
 | --- | --- |
 | **Status bar** | `5h 38% · wk 5% · today 1.2M`; turns yellow / red at 80% / 90% (configurable) |
-| **Hover** | progress bars and the time to reset for the 5-hour and weekly limits |
-| **Panel** (click) | ring gauges, 24-hour / 7-day / 30-day charts, breakdown by model and by project |
+| **Hover** | coloured bars and the time to reset for the 5-hour and weekly limits; today's cost at API prices |
+| **Panel** (click) | ring gauges, 24-hour / 7-day / 30-day charts, breakdown by model and by project; click a bar for its own breakdown; comparison with the previous period; recent sessions; same-named projects told apart |
+| **Cost** | the cost Claude Code reports, by day and project, at API prices (not what a subscription charges) |
 | **Alerts** | a notification when a limit crosses the warning / critical percent, and when it resets |
 | **Forecast** | "at this pace the 5-hour limit runs out in 23 min" — only when it would happen before the reset |
 | **All sessions** | every window and session on the machine is added up, so "today" is the real total |
 | **Many devices** | optional shared folder (iCloud Drive, Dropbox, Syncthing…) adds up your other machines |
-| **CSV export** | `date, dimension, name, tokens` for spreadsheets |
+| **CSV export** | by day and model, by day and project, or raw rows, with a cost column once cost is recorded |
 | **Languages** | Russian and English, picked from the editor language |
 
-<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/panel-light-49644f56.png" width="640" alt="Usage panel, light theme, 30 days"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/AndreyKilanov/claude-usage-monitor/main/assets/panel-light-f6bed58b.png" width="640" alt="Usage panel, light theme, 30 days"></p>
 
 ## Setup
 

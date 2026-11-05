@@ -1,3 +1,4 @@
+// @ts-check
 const vscode = require('vscode')
 const fs = require('fs')
 const { L } = require('../i18n')
