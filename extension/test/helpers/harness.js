@@ -44,8 +44,9 @@ function fakeEditor({ lang, config }, log, items, commands) {
             onDidReceiveMessage: callback => { log.onMessage = callback },
             set html(value) { panel.html = value },
           },
-          onDidDispose() {},
-          reveal() {},
+          onDidDispose(callback) { panel.disposeHandler = callback },
+          dispose() { panel.disposed = true; if (panel.disposeHandler) panel.disposeHandler() },
+          reveal() { if (panel.disposed) throw new Error('Webview is disposed') },
         }
         log.panels.push(panel)
         return panel

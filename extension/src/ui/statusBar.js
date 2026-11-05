@@ -59,11 +59,12 @@ function tooltipText(usage, totals, eta) {
   // the tooltip stays narrow: clock times, the cost split and the explanations live in the panel
   const rows = windows(usage).map(window => {
     const left = timeLeft(window.resetsAt)
-    return `| **${nameOf(window.kind)}** | ${bar(window.p, levelOf(window.p))} | **${pct(window.p)}** | ${left ? `${L.resets} ${left}` : ''} |`
+    return `| **${nameOf(window.kind)}** | ${bar(window.p, levelOf(window.p))} | **${pct(window.p)}** | ${left ? L.resets : ''} | ${left} |`
   })
 
-  // the reset column is left-aligned: right-aligned, "2 h 6 min" and "2 h 16 min" start at different places
-  const blocks = [[`| **${L.title}** | | | ${versionLink} |`, '|:--|:--|--:|:--|', ...rows].join('\n')]
+  // "resets in" and the time are two columns: the words line up on the left, the times on the right,
+  // and the last, right-aligned column puts the version in the header's top right corner
+  const blocks = [[`| **${L.title}** | | | | ${versionLink} |`, '|:--|:--|--:|:--|--:|', ...rows].join('\n')]
   if (eta) blocks.push(`$(flame) ${L.forecast} **${fmtMs(eta)}**`)
   blocks.push('---')
   blocks.push(`${L.todayLine}: **${groupNum(totals.periods.today.total)}** ${L.tokens} · ${L.sessions}: ${totals.sessionsToday}`)

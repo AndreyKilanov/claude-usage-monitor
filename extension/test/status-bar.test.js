@@ -115,10 +115,12 @@ test('tooltip: the header row is a real table row that lines up with the limit r
     const table = t.tooltip().split('\n').filter(l => l.startsWith('|'))
     assert.equal(table.length, 4, 'header, alignment, two limit rows')
     const cols = row => row.split(/(?<!\\)\|/).length - 2
-    assert.deepEqual(table.map(cols), [4, 4, 4, 4], `${lang}: every row has the same four cells`)
-    assert.match(table[1], /^\|:--\|:--\|--:\|:--\|$/, 'the reset times line up on the left')
+    assert.deepEqual(table.map(cols), [5, 5, 5, 5], `${lang}: every row has the same five cells`)
+    assert.match(table[1], /^\|:--\|:--\|--:\|:--\|--:\|$/, '"resets in" lines up on the left, the time and the version on the right')
     assert.match(table[2], /\| (5h|5 ч|[^|]*) \|/)
-    assert.match(table[2].split('|')[4], /\S/, 'the reset text is in the last column')
+    assert.match(table[2].split('|')[4], /^ (resets in|сброс через) $/, 'the words in their own column')
+    assert.match(table[2].split('|')[5], /\d/, 'the time in the last column')
+    assert.match(table[0].split('|')[5], /v\d/, 'the version in the top right corner')
   }
 })
 

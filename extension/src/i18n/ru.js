@@ -72,6 +72,7 @@ module.exports = {
   vsYesterday: 'к вчерашнему дню на это время', vsPrev7: 'к предыдущим 7 дням',
   barHint: 'Нажмите, чтобы увидеть разбивку этого столбца', barReset: 'Показать весь период', chartMax: 'макс.',
   emptyTitle: 'Данных пока нет', resetting: 'Сбрасывается…',
+  panelFilesGone: 'Claude Usage Monitor обновили, пока это окно было открыто, и файлов панели старой копии больше нет. Перезагрузите окно: Developer: Reload Window.',
   recentTitle: 'Последние сессии', recentNone: 'Сессий пока нет', recentActive: 'активно', recentModels: 'Модели',
   recentKinds: 'Токены', recentDevice: 'Устройство', recentId: 'Сессия', recentSpan: 'Время работы',
   recentNoCost: 'без стоимости (плагин до 0.7.0)',

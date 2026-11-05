@@ -124,7 +124,9 @@ test('alerts: the editor state is written only when an alert level changes', () 
   t.refresh()
   t.refresh()
   assert.equal(writes, afterFirst, 'the same reading twice writes nothing')
-  t.write('a.json', session({ fiveHour: 95 }))
+  // a different size too: a same-size rewrite within the same millisecond keeps the file's change time,
+  // and the read cache (time + size) would rightly treat it as unchanged
+  t.write('a.json', session({ fiveHour: 95, tokens: 123456 }))
   t.refresh()
   assert.equal(writes, afterFirst + 1)
 })

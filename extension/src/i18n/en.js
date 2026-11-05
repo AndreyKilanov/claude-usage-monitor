@@ -72,6 +72,7 @@ module.exports = {
   vsYesterday: 'vs yesterday by this time', vsPrev7: 'vs the 7 days before',
   barHint: "Click to see this bar's breakdown", barReset: 'Show the whole period', chartMax: 'max',
   emptyTitle: 'No data yet', resetting: 'Resetting…',
+  panelFilesGone: 'Claude Usage Monitor was updated while this window was open, and the panel files of the old copy are gone. Reload the window: Developer: Reload Window.',
   recentTitle: 'Recent sessions', recentNone: 'No sessions yet', recentActive: 'active', recentModels: 'Models',
   recentKinds: 'Tokens', recentDevice: 'Device', recentId: 'Session', recentSpan: 'Time span',
   recentNoCost: 'no cost (plugin before 0.7.0)',

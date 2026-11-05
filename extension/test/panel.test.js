@@ -38,10 +38,10 @@ test('versions: shown in the panel data and the tooltip, in both languages, and 
   const tip = t.tooltip()
   const link = `[_v${ownVersion}_](https://github.com/AndreyKilanov/claude-usage-monitor "Extension ${ownVersion} · plugin 0.6.3")`
   const headerRow = tip.split('\n').find(l => l.startsWith('| **Claude'))
-  assert.ok(headerRow && headerRow.endsWith(`${link} |`), 'the version link closes the header row: ' + headerRow)
-  assert.ok(tip.indexOf(link) < tip.indexOf('5-hour window'), 'above the limit bars, not under them')
-  assert.ok(!tip.includes('### '), 'the title now lives in the same table row')
-  assert.ok(!/plugin 0\.6\.3_?\s*$/.test(tip.trimEnd()), 'no version line at the bottom')
+  assert.equal(headerRow, `| **Claude — usage** | | | | ${link} |`, 'the version closes the header row')
+  assert.ok(tip.indexOf(link) < tip.indexOf('5-hour window'), 'top right, above the limit bars')
+  assert.ok(!tip.includes('### '), 'no separate heading')
+  assert.ok(!/plugin 0\.6\.3_?\)\s*$/.test(tip.trimEnd()), 'no version line at the bottom')
 
   const ru = setup({ lang: 'ru' })
   ru.write('a.json', day('p', 10))
@@ -127,4 +127,25 @@ test('the version label is in the Russian panel too, with a Russian hint', () =>
   en.write('a.json', day('p', 10, { v: '0.6.3' }))
   en.start()
   assert.equal(payloadOf(en).L.openRepo, 'Project page on GitHub')
+})
+
+test('panel files gone (the extension replaced on disk while the window runs): a clear message, and the next open starts afresh', () => {
+  const t = setup()
+  t.write('a.json', day('p', 10))
+  t.start()
+  const realRead = fs.readFileSync
+  fs.readFileSync = function (file, ...rest) {
+    if (String(file).endsWith('panel.html')) throw Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+    return realRead.call(this, file, ...rest)
+  }
+  try {
+    t.cmds['claudeUsage.open']()
+  } finally {
+    fs.readFileSync = realRead
+  }
+  assert.match(t.log.error.at(-1), /Reload the window/)
+  assert.equal(t.log.panels[0].disposed, true, 'the half-made tab is closed, not left behind')
+  t.cmds['claudeUsage.open']()
+  assert.equal(t.log.panels.length, 2, 'opening again makes a new panel instead of revealing a disposed one')
+  assert.match(t.log.panels[1].html, /Content-Security-Policy/)
 })

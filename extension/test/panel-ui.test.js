@@ -149,7 +149,7 @@ test('U9: the panel gives the clock time of resets and the forecast; the tooltip
   t.write('a.json', session({ limits: [{ kind: 'five_hour', percentUsed: 40, resetsAt: iso(2 * H) }] }))
   t.start()
   const row = t.tooltip().split('\n').find(line => line.startsWith('| **5-hour'))
-  assert.match(row, /\| resets in 2 h 0 min \|$/)
+  assert.match(row, /\| resets in \| 2 h 0 min \|$/)
   t.cmds['claudeUsage.open']()
   const html = t.log.panels[0].html
   assert.match(html, /fmtMs\(ms - Date\.now\(\)\) \+ ' · ' \+ data\.L\.at \+ ' ' \+ clockAt\(ms\)/)

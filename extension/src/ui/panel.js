@@ -23,11 +23,21 @@ function createPanel(app) {
 
   function open() {
     if (panel) return panel.reveal()
-    panel = vscode.window.createWebviewPanel('claudeUsage', L.title, vscode.ViewColumn.Beside, { enableScripts: true })
+    const created = vscode.window.createWebviewPanel('claudeUsage', L.title, vscode.ViewColumn.Beside, { enableScripts: true })
+    panel = created
     lastSent = null
-    panel.webview.html = panelHtml()
-    panel.onDidDispose(() => { panel = null }, null, app.context.subscriptions)
-    panel.webview.onDidReceiveMessage(message => {
+    // registered first, so a panel that failed half-way is still forgotten once closed
+    created.onDidDispose(() => { if (panel === created) panel = null }, null, app.context.subscriptions)
+    try {
+      created.webview.html = panelHtml()
+    } catch {
+      // the page's files are gone: the extension was replaced on disk while this window kept running it
+      panel = null
+      created.dispose()
+      vscode.window.showErrorMessage(L.panelFilesGone)
+      return
+    }
+    created.webview.onDidReceiveMessage(message => {
       if (!message) return
       if (message.type === 'ready') {
         // a (re)loaded page needs everything, including what is only worked out while the panel is open

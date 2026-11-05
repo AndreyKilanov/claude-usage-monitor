@@ -15,7 +15,7 @@ alerts and a pace forecast — right in the status bar of VS Code, Antigravity a
 
 <p align="center"><a href="#русская-версия">Русская версия ↓</a></p>
 
-<p align="center"><img src="assets/statusbar-559315b3.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
+<p align="center"><img src="assets/statusbar-caf24bc1.png" width="700" alt="Status bar item and its tooltip: limits, tokens, version"></p>
 <p align="center"><sub>The status bar item and its hover tooltip.</sub></p>
 
 <p align="center"><img src="assets/panel-dark-1726797c.png" width="640" alt="Usage panel, dark theme"></p>
@@ -160,7 +160,7 @@ The extension's install button installs whatever plugin version is on `main` on 
 
 > **Неофициальный проект.** Он не связан с Anthropic и не одобрен ею. Название «Claude» принадлежит правообладателю и указано лишь затем, чтобы было понятно, с чем работает инструмент.
 
-<p align="center"><img src="assets/statusbar-ru-f1b581db.png" width="700" alt="Элемент строки состояния и его подсказка: лимиты, токены, версия"></p>
+<p align="center"><img src="assets/statusbar-ru-f8403c3d.png" width="700" alt="Элемент строки состояния и его подсказка: лимиты, токены, версия"></p>
 <p align="center"><sub>Элемент строки состояния и подсказка при наведении.</sub></p>
 
 <p align="center"><img src="assets/panel-ru-6275661c.png" width="640" alt="Панель расхода, тёмная тема"></p>

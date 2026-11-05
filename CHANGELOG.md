@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1
+
+- **Tooltip:** the version is back in the top right corner. In 0.7.0 it slid towards the middle when the reset times were aligned; "resets in" and the time are now two columns, so the words line up on the left, the times on the right, and the version sits in the corner. The plugin is unchanged (0.7.0).
+- **Panel after an update:** when the extension is replaced on disk while a window keeps running the old copy, opening the panel no longer fails with "no such file" and then "Webview is disposed". It says to reload the window, closes the half-made tab, and the next open starts afresh.
+
 ## 0.7.0
 
 **Update the plugin** (menu → *Install the usage-monitor plugin*) and start a new Claude session to get cost; everything else works with the old plugin too.
